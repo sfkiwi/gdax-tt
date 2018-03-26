@@ -23,6 +23,7 @@ import { CancelOrderRequestMessage,
          PlaceOrderMessage,
          StreamMessage,
          StreamMessageLike,
+         StopActiveMessage,
          TradeExecutedMessage,
          TradeFinalizedMessage } from './Messages';
 import { OrderbookDiff } from '../lib/OrderbookDiff';
@@ -220,6 +221,9 @@ export class Trader extends Writable {
             case 'myOrderPlaced':
                 this.handleOrderPlacedConfirmation(msg);
                 break;
+            case 'stopActive':
+                this.handleStopActive(msg);
+                break;
         }
     }
 
@@ -283,12 +287,17 @@ export class Trader extends Writable {
     /**
      *  We should just confirm that we have the order, since we added when we placed it.
      *  Otherwise this Trader didn't place the order (or somehow missed the callback), but we should add
-     *  it to our memory book anyway otherwise it will go out of sync
+     *  it to our memory book anyway otherwise it will go out of sync. 
+     *  We emit the order placed message if the order is in our books already as this means that the requested 
+     *  order must have been a stop limit order as we are not catching the order placed in the promise 
+     *  .then block of the request order method. This means our stop order has been triggered and
+     * gdax has now placed the limit order on the order book.
      */
     private handleOrderPlacedConfirmation(msg: MyOrderPlacedMessage) {
         const orderId = msg.orderId;
         if (this.myBook.getOrder(orderId)) {
             this.logger.log('debug', 'Order confirmed', msg);
+            this.emit('Trader.order-placed', msg);
             return;
         }
         const order: Level3Order = {
@@ -299,6 +308,18 @@ export class Trader extends Writable {
         };
         this.myBook.add(order);
         this.emit('Trader.external-order-placement', msg);
+    }
+    /**
+     *  Activates when a stop order is requested
+     */
+    private handleStopActive(msg: StopActiveMessage) {
+        const orderId = msg.orderId;
+        if (this.myBook.getOrder(orderId)) {
+            this.emit('Trader.stop-active', msg);
+        } else {
+            this.logger.log('warn', 'Traded order not in my book', msg);
+            this.emit('Trader.outOfSyncWarning', 'Traded order not in my book');
+        }
     }
 
     /**

@@ -96,6 +96,21 @@ export interface GDAXMatchMessage extends ProductIdAndOptionalUserId {
     side: Side;
 }
 
+export interface GDAXStopActiveMessage extends ProductIdAndOptionalUserId {
+  type: 'activate';
+  sequence: number;
+  time: string;
+  profile_id: string;
+  order_id: string;
+  stop_type: string;
+  side: string;
+  stop_price: string;
+  size: string;
+  funds: string;
+  taker_fee_rate: string;
+  private: boolean;
+}
+
 export interface GDAXChangeMessage extends ProductIdAndOptionalUserId {
     type: 'change';
     sequence: number;
@@ -141,6 +156,7 @@ export type GDAXMessage =
     GDAXOpenMessage |
     GDAXDoneMessage |
     GDAXMatchMessage |
+    GDAXStopActiveMessage |
     GDAXChangeMessage |
     GDAXL2UpdateMessage |
     GDAXTickerMessage |
@@ -155,6 +171,7 @@ const GDAX_MESSAGE_TYPES: ReadonlySet<string> = new Set(['error',
                                                          'match',
                                                          'change',
                                                          'l2update',
+                                                         'activate',
                                                          'ticker',
                                                          'snapshot']);
 

@@ -22,6 +22,7 @@ import {
     NewOrderMessage,
     OrderDoneMessage,
     SnapshotMessage,
+    StopActiveMessage,
     StreamMessage,
     TickerMessage,
     TradeExecutedMessage,
@@ -39,6 +40,7 @@ import {
     GDAXMatchMessage,
     GDAXOpenMessage,
     GDAXReceivedMessage,
+    GDAXStopActiveMessage,
     GDAXSnapshotMessage,
     GDAXSubscriptionsMessage,
     GDAXTickerMessage,
@@ -59,6 +61,7 @@ type GDAXTradingMessage =
     GDAXOpenMessage |
     GDAXDoneMessage |
     GDAXMatchMessage |
+    GDAXStopActiveMessage |
     GDAXChangeMessage;
 
 /**
@@ -409,6 +412,23 @@ export class GDAXFeed extends ExchangeFeed {
                 };
                 return msg;
             }
+            case 'activate': {
+                const msg: StopActiveMessage = {
+                    type: 'stopActive',
+                    time: new Date(feedMessage.time),
+                    productId: feedMessage.product_id,
+                    orderId: feedMessage.order_id,
+                    side: feedMessage.side,
+                    stopPrice: feedMessage.stop_price,
+                    stopType: feedMessage.stop_type,
+                    size: feedMessage.size,
+                    sequence: feedMessage.sequence,
+                    private: feedMessage.private,
+                    funds: feedMessage.funds,
+                    takerFeeRate: feedMessage.taker_fee_rate
+                };
+                return msg;
+            }
             case 'match': {
                 return this.mapMatchMessage(feedMessage);
             }
@@ -489,6 +509,23 @@ export class GDAXFeed extends ExchangeFeed {
                     side: feedMessage.side,
                     price: feedMessage.price,
                     remainingSize: feedMessage.remaining_size
+                };
+                return msg;
+            }
+            case 'activate': {
+                const msg: StopActiveMessage = {
+                    type: 'stopActive',
+                    time: new Date(feedMessage.time),
+                    productId: feedMessage.product_id,
+                    orderId: feedMessage.order_id,
+                    side: feedMessage.side,
+                    stopPrice: feedMessage.stop_price,
+                    stopType: feedMessage.stop_type,
+                    size: feedMessage.size,
+                    sequence: feedMessage.sequence,
+                    private: feedMessage.private,
+                    funds: feedMessage.funds,
+                    takerFeeRate: feedMessage.taker_fee_rate
                 };
                 return msg;
             }

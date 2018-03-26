@@ -178,6 +178,8 @@ export interface PlaceOrderMessage extends StreamMessageLike {
     price?: string;
     postOnly?: boolean;
     size?: string;
+    stop?: 'loss' | 'entry';
+    stopPrice?: string;
     funds?: string;
     extra?: any;
 }
@@ -185,6 +187,23 @@ export interface PlaceOrderMessage extends StreamMessageLike {
 export interface CancelOrderRequestMessage extends StreamMessageLike {
     type: 'cancelOrder';
     orderId: string;
+}
+
+/**
+ * Emitted from a feed when I have successfully placed a stop order. (An authenticated feed is required)
+ */
+export interface StopActiveMessage extends StreamMessageLike {
+  type: 'stopActive';
+  productId: string;
+  orderId: string;
+  side: string;
+  size: string;
+  sequence: number;
+  stopType: string;
+  stopPrice: string;
+  private: boolean;
+  funds: string;
+  takerFeeRate: string;
 }
 
 /**
@@ -265,6 +284,7 @@ export type StreamMessage =
     PlaceOrderMessage |
     CancelOrderRequestMessage |
     TradeExecutedMessage |
+    StopActiveMessage |
     TradeFinalizedMessage |
     MyOrderPlacedMessage;
 
@@ -276,6 +296,7 @@ const STREAM_MESSAGE_TYPES: ReadonlySet<string> =
              'snapshot',
              'ticker',
              'placeOrder',
+             'stopActive',
              'cancelOrder',
              'tradeExecuted',
              'tradeFinalized',
