@@ -71,6 +71,20 @@ export interface GDAXMatchMessage extends GDAXProductMessage {
     side: string;
 }
 
+export interface GDAXActiveMessage extends GDAXProductMessage {
+  sequence: number;
+  time: string;
+  profile_id: string;
+  order_id: string;
+  stop_type: string;
+  side: string;
+  stop_price: string;
+  size: string;
+  funds: string;
+  taker_fee_rate: string;
+  private: boolean;
+}
+
 export interface GDAXChangeMessage extends GDAXProductMessage {
     sequence: number;
     time: string;

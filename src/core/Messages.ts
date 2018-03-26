@@ -173,6 +173,8 @@ export interface PlaceOrderMessage extends StreamMessage {
     price?: string;
     postOnly?: boolean;
     size?: string;
+    stop?: 'loss' | 'entry';
+    stopPrice?: string;
     funds?: string;
     extra?: any;
 }
@@ -212,6 +214,19 @@ export interface MyOrderPlacedMessage extends StreamMessage {
     orderType: string;
     size: string;
     sequence: number;
+}
+
+export interface StopActiveMessage extends StreamMessage {
+  productId: string;
+  orderId: string;
+  side: string;
+  size: string;
+  sequence: number;
+  stopType: string;
+  stopPrice: string;
+  private: boolean;
+  funds: string;
+  takerFeeRate: string;
 }
 
 /**

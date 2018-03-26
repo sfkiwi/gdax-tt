@@ -22,6 +22,7 @@ import {
     NewOrderMessage,
     OrderDoneMessage,
     SnapshotMessage,
+    StopActiveMessage,
     StreamMessage,
     TickerMessage,
     TradeExecutedMessage,
@@ -39,6 +40,7 @@ import {
     GDAXMatchMessage,
     GDAXMessage,
     GDAXOpenMessage,
+    GDAXActiveMessage,
     GDAXSnapshotMessage,
     GDAXSubscriptionsMessage,
     GDAXTickerMessage
@@ -478,6 +480,22 @@ export class GDAXFeed extends ExchangeFeed {
                     size: (feedMessage as GDAXOpenMessage).remaining_size,
                     sequence: (feedMessage as GDAXOpenMessage).sequence
                 } as MyOrderPlacedMessage;
+            case 'activate':
+                return {
+                    type: 'stopActive',
+                    time: time,
+                    productId: (feedMessage as GDAXActiveMessage).product_id,
+                    orderId: (feedMessage as GDAXActiveMessage).order_id,
+                    side: (feedMessage as GDAXActiveMessage).side,
+                    stopPrice: (feedMessage as GDAXActiveMessage).stop_price,
+                    stopType: (feedMessage as GDAXActiveMessage).stop_type,
+                    size: (feedMessage as GDAXActiveMessage).size,
+                    sequence: (feedMessage as GDAXActiveMessage).sequence,
+                    profileId: (feedMessage as GDAXActiveMessage).profile_id,
+                    private: (feedMessage as GDAXActiveMessage).private,
+                    funds: (feedMessage as GDAXActiveMessage).funds,
+                    takerFeeRate: (feedMessage as GDAXActiveMessage).taker_fee_rate
+                } as StopActiveMessage;
             default:
                 return {
                     type: 'unknown',
