@@ -173,8 +173,6 @@ export interface PlaceOrderMessage extends StreamMessage {
     price?: string;
     postOnly?: boolean;
     size?: string;
-    stop?: 'loss' | 'entry';
-    stopPrice?: string;
     funds?: string;
     extra?: any;
 }

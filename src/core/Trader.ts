@@ -291,12 +291,29 @@ export class Trader extends Writable {
      */
     private handleStopActive(msg: StopActiveMessage) {
         const orderId = msg.orderId;
+
+        // Acknowledgment of our stop limit order
         if (this.myBook.getOrder(orderId)) {
             this.emit('Trader.stop-active', msg);
-        } else {
-            this.logger.log('warn', 'Traded order not in my book', msg);
-            this.emit('Trader.outOfSyncWarning', 'Traded order not in my book');
+            return;
         }
+
+        // Acknowledgment of our stop market order
+        if (this.unfilledMarketOrders.has(orderId)) {
+          this.emit('Trader.stop-active', msg);
+          return;
+        }
+
+        // someone else must have requested the order
+        const order: Level3Order = {
+          id: orderId,
+          price: Big(msg.stopPrice),
+          side: msg.side,
+          size: Big(msg.size)
+        };
+
+        this.myBook.add(order);
+        this.emit('Trader.external-order-placement', msg);
     }
 
     /**
