@@ -196,6 +196,7 @@ export class LiveOrderbook extends Duplex implements Orderbook {
             case 'error':
             case 'myOrderPlaced':
             case 'placeOrder':
+            case 'stopActive':
             case 'tradeExecuted':
             case 'tradeFinalized':
             case 'unknown':

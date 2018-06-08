@@ -129,6 +129,7 @@ export class Trader extends Writable {
             if (req.orderType !== 'market') {
                 this.myBook.add(order);
             } else {
+                this.logger.log('debug', 'Adding market order to unfilledMarketOrders', order.id);
                 this.unfilledMarketOrders.add(order.id);
             }
             return order;
@@ -279,6 +280,7 @@ export class Trader extends Writable {
         const id: string = msg.orderId;
         const order: Level3Order = this.myBook.remove(id);
         if (!order) {
+            this.logger.log('debug', 'Removing market order from unfilledMarketOrders', id);
             this.unfilledMarketOrders.delete(id);
         }
         this.emit('Trader.trade-finalized', msg);
@@ -313,13 +315,7 @@ export class Trader extends Writable {
      *  Activates when a stop order is requested
      */
     private handleStopActive(msg: StopActiveMessage) {
-        const orderId = msg.orderId;
-        if (this.myBook.getOrder(orderId)) {
-            this.emit('Trader.stop-active', msg);
-        } else {
-            this.logger.log('warn', 'Traded order not in my book', msg);
-            this.emit('Trader.outOfSyncWarning', 'Traded order not in my book');
-        }
+        this.emit('Trader.stop-active', msg);
     }
 
     /**

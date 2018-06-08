@@ -211,6 +211,7 @@ export class GDAXFeed extends ExchangeFeed {
                 this.push(message);
             }
         } catch (err) {
+            this.log('error', `${err.name}`, err.stack);
             err.ws_msg = msg;
             this.onError(err);
         }

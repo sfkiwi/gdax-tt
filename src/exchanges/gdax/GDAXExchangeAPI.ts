@@ -232,6 +232,8 @@ export class GDAXExchangeAPI implements PublicExchangeAPI, AuthenticatedExchange
                     side: order.side,
                     size: order.size,
                     client_oid: order.clientId,
+                    stop: order.stop,
+                    stop_price: order.stopPrice,
                     funds: order.funds,
                     stp: order.extra && order.extra.stp
                 };
