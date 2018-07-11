@@ -1,0 +1,82 @@
+/* tslint:disable */
+
+const assert = require('assert');
+const nock = require('nock');
+
+import request = require('superagent');
+import { BinanceConfig, BinanceOptions } from '../../src/exchanges/binance/BinanceAuth';
+import { BinanceExchangeAPI } from '../../src/exchanges/binance/BinanceExchangeAPI';
+import { ExchangeAuthConfig } from '../../src/exchanges/AuthConfig';
+import { HTTPError, extractResponse } from '../../src/lib/errors';
+import { Big } from '../../src/lib/types';
+import Response = request.Response;
+import { BinanceBookTicker } from '../../src/exchanges/binance/BinanceCommon';
+import { Ticker } from '../../src/exchanges/PublicExchangeAPI';
+
+const BASE_ENDPOINT = 'https://api.binance.com'
+
+
+const opt : BinanceOptions = {
+    test : true,
+    verbose : true,
+    useServerTime : true
+} ;
+
+
+const demoTicker = {
+  symbol: 'BNBBTC',
+  bidPrice: '0.1',
+  bidQty: '44.125000000',
+  askPrice: '20.5',
+  askQty: '187.2915'
+};
+
+describe('The Binance exchange API - Mocked REST Requests', () => {
+    it('loads mocked book ticker', () => {
+        const endpoint = '/api/v3/ticker/bookTicker?symbol=BNBBTC';
+        nock(BASE_ENDPOINT)
+        .get(endpoint)
+        .reply(200, demoTicker);
+
+        // raw rest request
+        const promise = request.get(`${BASE_ENDPOINT}${endpoint}`)
+        .accept('application/json')
+        .then((res: Response) => {
+            if (res.status !== 200) {
+                return Promise.reject(new HTTPError('Error loading ticker from Binance', extractResponse(res)));
+            }
+            const bookTicker: BinanceBookTicker = res.body;
+            return Promise.resolve({
+                productId: bookTicker.symbol,
+                ask: Big(bookTicker.askPrice),
+                bid: Big(bookTicker.bidPrice),
+                price: Big(0),
+                volume: Big(0),
+                time: new Date(Date.now() * 1000)
+            });
+        });
+
+       
+
+        return promise.then((ticker:Ticker) => {
+            assert(ticker.ask.eq(demoTicker.askPrice));
+            assert(ticker.bid.eq(demoTicker.bidPrice));
+            nock.cleanAll();
+        })
+
+    });
+
+
+
+});
+
+describe('The Binance exchange API', () => {
+    const config: BinanceConfig = {options:opt};
+    const binance = new BinanceExchangeAPI(config);
+    it('loads the book ticker', () => {
+        return binance.loadTicker('BNB-BTC').then((ticker) => {
+            assert(ticker)
+        })
+
+    });
+});
