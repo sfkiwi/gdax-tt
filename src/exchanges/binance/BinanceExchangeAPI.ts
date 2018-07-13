@@ -8,23 +8,22 @@ import { BigJS, Big } from '../../lib/types';
 import { BinanceConfig, createBinanceInstance } from './BinanceAuth';
 import { ExchangeAuthConfig } from '../AuthConfig';
 import { GTTError } from '../../lib/errors';
-import { PRODUCT_MAP, BinanceBookTicker } from './BinanceCommon';
+import { PRODUCT_MAP, Binance24Ticker } from './BinanceCommon';
 
 export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExchangeAPI, ExchangeTransferAPI {
 
     owner: string = 'Binance';
     private readonly auth: ExchangeAuthConfig;
     private binanceInstance: any;
+    
+    get api() {
+        return this.binanceInstance;
+    }
     // private readonly config : BinanceConfig;
 
     constructor(config: BinanceConfig) {
-        // this.config = config;
         this.auth = config.auth && config.auth.key && config.auth.secret ? config.auth : undefined;
         this.binanceInstance = createBinanceInstance(this.auth, config.options);
-        console.log(config);
-        // } catch (err) {
-        //     throw new Error('Could not create BinanceExchangeAPI: ' + err);
-        // }
     }
 
     requestCryptoAddress(cur: string): Promise<CryptoAddress> {
@@ -72,15 +71,22 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     loadOrderbook(gdaxProduct: string): Promise<BookBuilder> {
-        throw new Error('Method not implemented.');
+        const binanceSymbol = BinanceExchangeAPI.product(gdaxProduct);
+        const endpoint = this.binanceInstance.websockets.depthCache(binanceSymbol, (symbol: string, depth: any) => {
+            //console.log(depth);
+        });
+        console.log(endpoint);
+        const promise: Promise<BookBuilder> = new Promise<BookBuilder>((resolve, reject) => {
+            
+        });
+        return promise;
     }
 
     loadTicker(gdaxProduct: string): Promise<Ticker> {
         const binanceSymbol = BinanceExchangeAPI.product(gdaxProduct);
-        const promise : Promise<Ticker> = new Promise<Ticker>((resolve, reject) => {
-            this.binanceInstance.bookTickers(binanceSymbol, (error: any, response: BinanceBookTicker) => {               
+        const promise: Promise<Ticker> = new Promise<Ticker>((resolve, reject) => {
+            this.binanceInstance.websockets.prevDay(binanceSymbol, (error: any, response: Binance24Ticker) => {
                 if (error) {
-                    console.log(error);
                     if (error.statusCode && error.statusCode !== 200) {
                         if (error.body) {
                             reject(new Error('Error loading ticker from Binance.\nCode:' + error.body.code + '\nMessage:' + error.body.msg))
@@ -90,25 +96,22 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
                     reject(new Error('An error occurred during the loading ticker from Binance: ' + error));
                     return;
                 }
-
-              
-
                 const ticker: Ticker = {
                     productId: response.symbol,
-                    ask: Big(response.askPrice),
-                    price: Big(response.bidPrice),
-                    bid: Big(response.bidPrice),
-                    time: new Date(Date.now())
+                    trade_id: response.lastTradeId,
+                    volume: Big(response.volume),
+                    ask: Big(response.bestAsk),
+                    price: Big(response.priceChange),
+                    bid: Big(response.bestBid),
+                    time: new Date(response.eventTime),
                 }
-                console.log(ticker);
-
                 resolve(ticker);
             });
         })
-        .then((ticker:Ticker) => {
+        .then((ticker: Ticker) => {
             return Promise.resolve(ticker);
         })
-        .catch((err : Error) => {
+        .catch((err: Error) => {
             return Promise.reject(new GTTError('Error loading ' + gdaxProduct + ' ticker from Binance', err));
         });
 
@@ -116,7 +119,39 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     loadCandles(options: CandleRequestOptions): Promise<Candle[]> {
-        throw new Error('Method not implemented.');
+
+        const binanceSymbol = BinanceExchangeAPI.product(options.gdaxProduct);
+        const candleSticksOptions = {
+            limit: options.limit || 500,
+            //endTime: options.from || undefined,
+            //startTime
+        }
+        const promise: Promise<Candle[]> = new Promise<Candle[]>((resolve, reject) => {
+            this.binanceInstance.candlesticks(binanceSymbol, options.interval, (error:any, ticks: any) =>{
+            
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                let candleList: Candle[] = []; 
+                for (let i = 0; i < ticks.length; i++) {
+                    const [time, open, high, low, close, volume] = ticks[i];
+                    let candle : Candle = {
+                        timestamp: new Date(time),
+                        close: Big(close),
+                        high: Big(high),
+                        low: Big(low),
+                        open: Big(open),
+                        volume: Big(volume)
+                    }
+                    candleList.push(candle);
+                }
+                //let [time, open, high, low, close, volume, closeTime, assetVolume, trades, buyBaseVolume, buyAssetVolume, ignored] = last_tick;
+                resolve(candleList);
+            }, candleSticksOptions);
+        });
+
+        return promise;
     }
 
     /**

@@ -65,7 +65,7 @@ export interface CandleRequestOptions {
     interval: CandleInterval;
     from: Date;
     limit: number;
-    extra: any;
+    extra?: any;
 }
 
 export type CandleInterval = '1m' | '3m' | '5m' | '10m' | '15m' | '30m' | '1h' | '4h' | '12h' | '1d' | '3d' | '7d';

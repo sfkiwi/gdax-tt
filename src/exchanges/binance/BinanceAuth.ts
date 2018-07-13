@@ -3,6 +3,8 @@
 import { ExchangeAuthConfig } from '../AuthConfig';
 const Binance = require('node-binance-api');
 
+interface BinanceLoggerCallback { (message: string): void }
+
 /**
  * Binance API options interface
  */
@@ -34,7 +36,7 @@ export interface BinanceOptions {
      * Logger function
      * You can create your own logger here, or disable console output
      */
-    log?: void;
+    log?: BinanceLoggerCallback;
 }
 
 export interface BinanceConfig {
@@ -47,6 +49,7 @@ export interface BinanceConfig {
      */
     auth ?: ExchangeAuthConfig;
 }
+
 
 export function createBinanceInstance(auth: ExchangeAuthConfig, options?: BinanceOptions) {
 
