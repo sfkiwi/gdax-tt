@@ -13,6 +13,7 @@ import { BinanceExchangeAPI } from '../../src/exchanges/binance/BinanceExchangeA
 //import { BinanceBookTicker } from '../../src/exchanges/binance/BinanceCommon';
 import { CandleRequestOptions } from '../../src/exchanges/PublicExchangeAPI';
 import { ExchangeAuthConfig } from '../../src/exchanges/AuthConfig';
+import { BinanceWebsocketAPI } from '../../src/exchanges/binance/BinanceWebsocketAPI';
 
 const TIMEOUT = 10000;
 
@@ -89,11 +90,36 @@ const stopSockets = (binance: BinanceExchangeAPI) => {
 
 // });
 
-describe('The Binance exchange API', () => {
+describe('The Binance WebSocket Exchange API', () => {
+    const config: BinanceConfig = { options: opt, auth: auth };
+    const binanceWS = new BinanceWebsocketAPI(config);
+
+    describe('Websocket - loads bookticker', function () {
+        let bookticker: any;
+        beforeEach(function (this: Mocha.IContextDefinition, done) {
+            this.timeout(TIMEOUT);
+            let obs = binanceWS.streamTicker('BNB-BTC');
+            obs.subscribe((ticker) => {
+                bookticker = ticker;
+                binanceWS.stopAllStreams();
+                done();
+            })
+        });
+
+        it('', () => {
+            assert(typeof bookticker === 'object');
+        });
+    });
+
+   
+});
+
+
+describe('The Binance Exchange API', () => {
     const config: BinanceConfig = { options: opt, auth: auth };
     const binance = new BinanceExchangeAPI(config);
 
-    describe('Websocket - loads bookticker', function () {
+    describe('[old] Websocket - loads bookticker', function () {
         let bookticker: any;
         beforeEach(function (this: Mocha.IContextDefinition, done) {
             this.timeout(TIMEOUT);
@@ -137,11 +163,9 @@ describe('The Binance exchange API', () => {
 
     describe('Websocket - loads orderbook', function () {
 
-        let bookbuilder:any;
+        let bookbuilder: any;
 
         beforeEach(function (this: Mocha.IContextDefinition, done) {
-            
-
             binance.loadOrderbook('BNB-BTC').then((book) => {
                 bookbuilder = book;
                 stopSockets(binance);

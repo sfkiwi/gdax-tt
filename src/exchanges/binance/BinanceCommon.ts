@@ -71,3 +71,13 @@ export interface BinanceCandlesticks {
     symbol: string;
     ticks: BinanceTick;
 }
+
+/**
+* Returns the Binance product that's equivalent to the given GDAX product. If it doesn't exist,
+* return the given product
+* @param gdaxProduct
+* @returns {string} Binance product code
+*/
+export function toBinanceSymbol(gdaxProduct: string) {
+   return PRODUCT_MAP[gdaxProduct] || gdaxProduct;
+}
