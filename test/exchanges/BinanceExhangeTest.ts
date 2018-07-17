@@ -14,6 +14,7 @@ import { BinanceExchangeAPI } from '../../src/exchanges/binance/BinanceExchangeA
 import { CandleRequestOptions } from '../../src/exchanges/PublicExchangeAPI';
 import { ExchangeAuthConfig } from '../../src/exchanges/AuthConfig';
 import { BinanceWebsocketAPI } from '../../src/exchanges/binance/BinanceWebsocketAPI';
+import { MochaDone } from './MochaDone';
 
 const TIMEOUT = 10000;
 
@@ -94,16 +95,19 @@ describe('The Binance WebSocket Exchange API', () => {
     const config: BinanceConfig = { options: opt, auth: auth };
     const binanceWS = new BinanceWebsocketAPI(config);
 
-    describe('Websocket - loads bookticker', function () {
+    describe('loads bookticker', function () {
         let bookticker: any;
+        
         beforeEach(function (this: Mocha.IContextDefinition, done) {
+            let doneWrapper = new MochaDone(done);
             this.timeout(TIMEOUT);
+            
             let obs = binanceWS.streamTicker('BNB-BTC');
             obs.subscribe((ticker) => {
                 bookticker = ticker;
+                doneWrapper.trigger();
                 binanceWS.stopAllStreams();
-                done();
-            })
+            });
         });
 
         it('', () => {
@@ -119,22 +123,21 @@ describe('The Binance Exchange API', () => {
     const config: BinanceConfig = { options: opt, auth: auth };
     const binance = new BinanceExchangeAPI(config);
 
-    describe('[old] Websocket - loads bookticker', function () {
-        let bookticker: any;
-        beforeEach(function (this: Mocha.IContextDefinition, done) {
-            this.timeout(TIMEOUT);
-            binance.loadTicker('BNB-BTC').then((ticker) => {
-                bookticker = ticker;
+    // describe('[old] Websocket - loads bookticker', function () {
+    //     let bookticker: any;
+    //     beforeEach(function (this: Mocha.IContextDefinition, done) {
+    //         this.timeout(TIMEOUT);
+    //         binance.loadTicker('BNB-BTC').then((ticker) => {
+    //             bookticker = ticker;
+    //             stopSockets(binance);
+    //             done();
+    //         });
+    //     });
 
-                stopSockets(binance);
-                done();
-            });
-        });
-
-        it('', () => {
-            assert(typeof bookticker === 'object');
-        });
-    });
+    //     it('', () => {
+    //         assert(typeof bookticker === 'object');
+    //     });
+    // });
 
     describe('Websocket - loads candlesticks', function () {
         let candlestick: any;
@@ -161,22 +164,22 @@ describe('The Binance Exchange API', () => {
         })
     });
 
-    describe('Websocket - loads orderbook', function () {
+    // describe('Websocket - loads orderbook', function () {
 
-        let bookbuilder: any;
+    //     let bookbuilder: any;
 
-        beforeEach(function (this: Mocha.IContextDefinition, done) {
-            binance.loadOrderbook('BNB-BTC').then((book) => {
-                bookbuilder = book;
-                stopSockets(binance);
-                done();
-            });
-            this.timeout(TIMEOUT);
-        });
+    //     beforeEach(function (this: Mocha.IContextDefinition, done) {
+    //         binance.loadOrderbook('BNB-BTC').then((book) => {
+    //             bookbuilder = book;
+    //             stopSockets(binance);
+    //             done();
+    //         });
+    //         this.timeout(TIMEOUT);
+    //     });
 
-        it('', () => {
-            assert(bookbuilder)
-        });
-    });
+    //     it('', () => {
+    //         assert(bookbuilder)
+    //     });
+    // });
 
 });

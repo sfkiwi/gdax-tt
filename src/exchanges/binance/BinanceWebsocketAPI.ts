@@ -1,14 +1,12 @@
-import { BinanceConfig, createBinanceInstance } from "./BinanceAuth";
-
-import {Observable} from 'Rxjs';
-import { Ticker } from "../PublicExchangeAPI";
-import { Big } from "../../lib/types";
-import { Binance24Ticker, toBinanceSymbol } from "./BinanceCommon";
-
+import { BinanceConfig, createBinanceInstance } from './BinanceAuth';
+import { Observable } from 'rxjs';
+import { Ticker } from '../PublicExchangeAPI';
+import { Big } from '../../lib/types';
+import { Binance24Ticker, toBinanceSymbol } from './BinanceCommon';
 
 interface ObservablePair {
-    observable:Observable<any>,
-    endpoint:string
+    observable: Observable<any>;
+    endpoint: string;
 }
 
 export class BinanceWebsocketAPI {
@@ -16,23 +14,23 @@ export class BinanceWebsocketAPI {
     private binanceInstance: any;
     private observables: Map<string,ObservablePair>;
 
-    constructor(config : BinanceConfig) {
-        //this.auth = config.auth && config.auth.key && config.auth.secret ? config.auth : undefined;
+    constructor(config: BinanceConfig) {
         this.binanceInstance = createBinanceInstance(config.auth, config.options);
+        this.observables = new Map<string,ObservablePair>();
     }
 
-    streamTicker(symbol: string) : Observable<Ticker> {
+    streamTicker(symbol: string): Observable<Ticker> {
 
         const binanceSymbol = toBinanceSymbol(symbol);
         const mapKey = 'ticker-'.concat(binanceSymbol);
-        let pair : ObservablePair = this.observables.get(mapKey);
+        let pair: ObservablePair = this.observables.get(mapKey);
 
-        if (pair)
+        if (pair) {
             return pair.observable;
+        }
 
-     
         let endpoint;
-        let obs = new Observable<Ticker>(sub => {
+        const obs = new Observable<Ticker>((sub) => {
             endpoint = this.binanceInstance.websockets.prevDay(binanceSymbol, (error: any, response: Binance24Ticker) => {
                 if (error) {
                     if (error.statusCode && error.statusCode !== 200) {
@@ -50,7 +48,7 @@ export class BinanceWebsocketAPI {
                     price: Big(response.priceChange),
                     bid: Big(response.bestBid),
                     time: new Date(response.eventTime),
-                }
+                };
                 sub.next(ticker);
             });
         });
@@ -58,24 +56,20 @@ export class BinanceWebsocketAPI {
         pair = {
             endpoint: endpoint,
             observable: obs
-        }
+        };
 
         this.observables.set(mapKey, pair);
-
         return obs;
-        // obs.subscribe(ticker => {
-
-        // });
-        //from()
-
     }
 
     stopAllStreams(): void {
+
+        const binanceWsAPI = this.binanceInstance.websockets;
+
         this.observables.forEach((value) => {
-            this.binanceInstance.terminate(value.endpoint);
+            binanceWsAPI.terminate(value.endpoint);
         });
 
         this.observables.clear();
     }
-
 }
