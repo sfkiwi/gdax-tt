@@ -1,6 +1,7 @@
 /* tslint:disable */
 
 import { ExchangeAuthConfig } from '../AuthConfig';
+import { Logger } from '../../utils';
 const Binance = require('node-binance-api');
 
 export interface BinanceLoggerCallback { (message: string): void }
@@ -48,6 +49,8 @@ export interface BinanceConfig {
      * Binance Authentication configuration
      */
     auth ?: ExchangeAuthConfig;
+
+    logger ?: Logger;
 }
 
 

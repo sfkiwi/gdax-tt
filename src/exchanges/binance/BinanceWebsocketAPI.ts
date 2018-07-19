@@ -1,28 +1,37 @@
+/* tslint:disable */
 import { BinanceConfig, createBinanceInstance } from './BinanceAuth';
 import { Observable } from 'rxjs';
-import { Ticker } from '../PublicExchangeAPI';
+import { Ticker, CandleInterval } from '../PublicExchangeAPI';
 import { Big } from '../../lib/types';
 import { Binance24Ticker, toBinanceSymbol } from './BinanceCommon';
+import { BookBuilder } from '../../lib';
+import { Logger } from '../../utils';
+import { BinanceCandlesticks, BinanceRawCandlesticks } from './BinanceWebsocketInterfaces';
+
+export type BinanceWebsocketName = 'ticker' | 'orderbook' | 'candlestick';
 
 interface ObservablePair {
     observable: Observable<any>;
     endpoint: string;
 }
 
+
 export class BinanceWebsocketAPI {
 
     private binanceInstance: any;
-    private observables: Map<string,ObservablePair>;
+    private observables: Map<string, ObservablePair>;
+    private readonly logger: Logger;
 
     constructor(config: BinanceConfig) {
         this.binanceInstance = createBinanceInstance(config.auth, config.options);
-        this.observables = new Map<string,ObservablePair>();
+        this.observables = new Map<string, ObservablePair>();
+        this.logger = config.logger;
     }
 
     streamTicker(symbol: string): Observable<Ticker> {
 
         const binanceSymbol = toBinanceSymbol(symbol);
-        const mapKey = 'ticker-'.concat(binanceSymbol);
+        const mapKey = this.getObservableKey('ticker', binanceSymbol);
         let pair: ObservablePair = this.observables.get(mapKey);
 
         if (pair) {
@@ -62,6 +71,86 @@ export class BinanceWebsocketAPI {
         return obs;
     }
 
+    streamCandlesticks(symbol: string, interval: CandleInterval = '5m') : Observable<BinanceCandlesticks> {
+        
+        const binanceSymbol = toBinanceSymbol(symbol);
+        const mapKey = this.getObservableKey('candlestick', binanceSymbol);
+        let pair: ObservablePair = this.observables.get(mapKey);
+
+        if (pair) {
+            return pair.observable;
+        }
+
+        let endpoint;
+        const obs = new Observable<BinanceCandlesticks>((sub) => {
+            endpoint = this.binanceInstance.websockets.candlesticks(binanceSymbol, interval, (candlestick: BinanceRawCandlesticks) => {
+                
+                const tick = candlestick.k;
+                const candle: BinanceCandlesticks = {
+                    time: candlestick.E,
+                    symbol: candlestick.s,
+                    open: tick.o,
+                    close: tick.c,
+                    high: tick.h,
+                    low: tick.l,
+                    volume: tick.v,
+                    trades: tick.n,
+                    interval: tick.i,
+                    isFinal: tick.x,
+                    quoteVolume: tick.q,
+                    buyVolume: tick.V,
+                    quoteBuyVolume: tick.Q
+                }
+                sub.next(candle);
+            });
+        });
+
+        pair = {
+            endpoint: endpoint,
+            observable: obs
+        };
+
+        this.observables.set(mapKey, pair);
+        return obs;
+    }
+
+    streamOrderbook(symbol: string, limit: number = 500): Observable<BookBuilder> {
+
+        const binanceSymbol = toBinanceSymbol(symbol);
+        const mapKey = this.getObservableKey('orderbook', binanceSymbol);
+        let pair: ObservablePair = this.observables.get(mapKey);
+
+        if (pair) {
+            return pair.observable;
+        }
+
+        let endpoint;
+        const obs = new Observable<BookBuilder>((sub) => {
+            endpoint = this.binanceInstance.websockets.depthCache(binanceSymbol, (symbol: string, depth: any) => {
+                const builder = new BookBuilder(this.logger);
+                // TODO
+                sub.next(builder);
+            }, limit);
+        });
+
+        pair = {
+            endpoint: endpoint,
+            observable: obs
+        };
+
+        this.observables.set(mapKey, pair);
+        return obs;
+    }
+
+    private getObservableKey(streamName: BinanceWebsocketName,binanceSymbol?: string): string {
+        
+        let mapKey = streamName;
+        if (binanceSymbol) {
+            mapKey.concat('-').concat(binanceSymbol);
+        }
+        return mapKey;
+    } 
+
     stopAllStreams(): void {
 
         const binanceWsAPI = this.binanceInstance.websockets;
@@ -72,4 +161,34 @@ export class BinanceWebsocketAPI {
 
         this.observables.clear();
     }
+
+    stopStream(streamName: BinanceWebsocketName, symbol?: string): boolean {
+        const mapKey = this.getObservableKey(streamName, toBinanceSymbol(symbol));
+        let pair: ObservablePair = this.observables.get(mapKey);
+        if (pair) {
+            const binanceWsAPI = this.binanceInstance.websockets;
+            binanceWsAPI.terminate(pair.endpoint);
+            return true
+        } else {
+            return false;
+        }
+    }
+
+    getObservableStream(streamName: BinanceWebsocketName, symbol?: string): Observable<any> {
+        const mapKey = this.getObservableKey(streamName, toBinanceSymbol(symbol));
+        let pair: ObservablePair = this.observables.get(mapKey);
+
+        if (pair) {
+            return pair.observable;
+        } else {
+            return null;
+        }
+    }
+
+    hasStream(streamName: BinanceWebsocketName, symbol?: string): boolean {
+        const mapKey = this.getObservableKey(streamName, toBinanceSymbol(symbol));
+        return this.observables.has(mapKey);
+    }
+
+
 }

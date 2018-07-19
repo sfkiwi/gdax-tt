@@ -3,12 +3,12 @@
  * A map of supported GDAX books to the equivalent Binance book
  */
 export const PRODUCT_MAP: { [index: string]: string } = {
-    'BNB-BTC': 'BNBBTC',
-    'BNB-ETH': 'BNBETH',
-    'LTC-USD': 'LTCUSD',
-    'LTC-BTC': 'LTCBTC',
-    'ETH-USD': 'ETHUSD',
-    'ETH-BTC': 'ETHBTC'
+  'BNB-BTC': 'BNBBTC',
+  'BNB-ETH': 'BNBETH',
+  'LTC-USD': 'LTCUSD',
+  'LTC-BTC': 'LTCBTC',
+  'ETH-USD': 'ETHUSD',
+  'ETH-BTC': 'ETHBTC'
 };
 
 export interface BinanceBookTicker {
@@ -48,30 +48,6 @@ export interface Binance24Ticker {
   numTrades: string;
 }
 
-export interface BinanceTick {
-  [indexer:number]: {
-  time: number; // OpenTime
-  open: string; // Open
-  high: string;
-  low: string;
-  close: string;
-  volume: string;
-  closeTime: number;
-  assetVolume: string;
-  trades: number;
-  buyBaseVolume: string;
-  buyAssetVolume: string;
-  ignored: string;
-  }
-}
-
-export interface BinanceCandlesticks {
-    eventType: string;
-    eventTime: number;
-    symbol: string;
-    ticks: BinanceTick;
-}
-
 /**
 * Returns the Binance product that's equivalent to the given GDAX product. If it doesn't exist,
 * return the given product
@@ -79,5 +55,7 @@ export interface BinanceCandlesticks {
 * @returns {string} Binance product code
 */
 export function toBinanceSymbol(gdaxProduct: string) {
-   return PRODUCT_MAP[gdaxProduct] || gdaxProduct;
+  return PRODUCT_MAP[gdaxProduct] || gdaxProduct;
 }
+
+//export function convertBinanceBookToGdax()

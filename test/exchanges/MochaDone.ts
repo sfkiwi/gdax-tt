@@ -9,7 +9,7 @@ export class MochaDone {
     public verbose: boolean = false;
     private called: boolean = false;
     private fn: () => void;
-    
+
     constructor(fn: () => void) {
         this.fn = fn;
     }
