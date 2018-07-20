@@ -3,7 +3,7 @@ import { BinanceConfig, createBinanceInstance } from './BinanceAuth';
 import { Observable } from 'rxjs';
 import { Ticker, CandleInterval } from '../PublicExchangeAPI';
 import { Big } from '../../lib/types';
-import { Binance24Ticker, toBinanceSymbol } from './BinanceCommon';
+import { Binance24Ticker, toBinanceSymbol, convertBinanceOrderBookToGdaxBook } from './BinanceCommon';
 import { BookBuilder } from '../../lib';
 import { Logger } from '../../utils';
 import { BinanceCandlesticks, BinanceRawCandlesticks } from './BinanceWebsocketInterfaces';
@@ -127,9 +127,8 @@ export class BinanceWebsocketAPI {
         let endpoint;
         const obs = new Observable<BookBuilder>((sub) => {
             endpoint = this.binanceInstance.websockets.depthCache(binanceSymbol, (symbol: string, depth: any) => {
-                const builder = new BookBuilder(this.logger);
-                // TODO
-                sub.next(builder);
+                const bookBuilder = convertBinanceOrderBookToGdaxBook(depth, this.logger);
+                sub.next(bookBuilder);
             }, limit);
         });
 
@@ -189,6 +188,5 @@ export class BinanceWebsocketAPI {
         const mapKey = this.getObservableKey(streamName, toBinanceSymbol(symbol));
         return this.observables.has(mapKey);
     }
-
-
 }
+

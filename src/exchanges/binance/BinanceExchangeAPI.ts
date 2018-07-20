@@ -8,13 +8,16 @@ import { BigJS, Big } from '../../lib/types';
 import { BinanceConfig, createBinanceInstance } from './BinanceAuth';
 import { ExchangeAuthConfig } from '../AuthConfig';
 import { GTTError } from '../../lib/errors';
-import { PRODUCT_MAP, Binance24Ticker } from './BinanceCommon';
+import { PRODUCT_MAP, Binance24Ticker, BinanceOrderBook, convertBinanceOrderBookToGdaxBook } from './BinanceCommon';
+import { Logger } from '../../utils';
 
 export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExchangeAPI, ExchangeTransferAPI {
 
     owner: string = 'Binance';
     private readonly auth: ExchangeAuthConfig;
+    private readonly logger: Logger;
     private binanceInstance: any;
+
 
     get api() {
         return this.binanceInstance;
@@ -24,6 +27,7 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     constructor(config: BinanceConfig) {
         this.auth = config.auth && config.auth.key && config.auth.secret ? config.auth : undefined;
         this.binanceInstance = createBinanceInstance(this.auth, config.options);
+        this.logger = config.logger || undefined;
     }
 
     requestCryptoAddress(cur: string): Promise<CryptoAddress> {
@@ -71,7 +75,25 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     loadOrderbook(gdaxProduct: string): Promise<BookBuilder> {
-        throw new Error('Method not implemented. ');
+        const binanceSymbol = BinanceExchangeAPI.product(gdaxProduct);
+        const promise: Promise<BookBuilder> = new Promise<BookBuilder>((resolve, reject) => {
+            this.binanceInstance.depth(binanceSymbol, (error: any, data: BinanceOrderBook, symbol: string) => {
+                if (error) {
+                    reject(new Error('An error occurred during the loading order book from Binance: ' + error));
+                    return;
+                }
+
+                const book = convertBinanceOrderBookToGdaxBook(data, this.logger);
+
+                resolve(book);
+
+            })
+        }).then((book: BookBuilder) => {
+            return Promise.resolve(book);
+        }).catch((err: Error) => {
+            return Promise.reject(new GTTError('Error loading ' + binanceSymbol + ' order book from Binance', err));
+        })
+        return promise;
     }
 
     loadTicker(gdaxProduct: string): Promise<Ticker> {
@@ -99,13 +121,11 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
                 }
                 resolve(ticker);
             });
-        })
-            .then((ticker: Ticker) => {
-                return Promise.resolve(ticker);
-            })
-            .catch((err: Error) => {
-                return Promise.reject(new GTTError('Error loading ' + gdaxProduct + ' ticker from Binance', err));
-            });
+        }).then((ticker: Ticker) => {
+            return Promise.resolve(ticker);
+        }).catch((err: Error) => {
+            return Promise.reject(new GTTError('Error loading ' + binanceSymbol + ' ticker from Binance', err));
+        });
 
         return promise;
     }

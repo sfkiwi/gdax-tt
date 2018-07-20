@@ -57,3 +57,19 @@ export interface BinanceCandlesticks {
     buyVolume: string;
     quoteBuyVolume: string;
 }
+
+export interface BinanceMarketDepth {
+    /** Event Type */
+    e: string;
+    /** Event Time */
+    E: number;
+    /** Symbol */
+    s: string;
+    /** Update ID */
+    U: number;
+    u: number;
+    /** Bid Depth */
+    b: any;
+    /** Ask Depth */
+    a: any;
+}
