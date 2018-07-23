@@ -3,10 +3,11 @@ import { BinanceConfig, createBinanceInstance } from './BinanceAuth';
 import { Observable } from 'rxjs';
 import { Ticker, CandleInterval } from '../PublicExchangeAPI';
 import { Big } from '../../lib/types';
-import { Binance24Ticker, toBinanceSymbol, convertBinanceOrderBookToGdaxBook } from './BinanceCommon';
+import { toBinanceSymbol, convertBinanceOrderBookToGdaxBook } from './BinanceCommon';
 import { BookBuilder } from '../../lib';
 import { Logger } from '../../utils';
 import { BinanceCandlesticks, BinanceRawCandlesticks } from './BinanceWebsocketInterfaces';
+import { Binance24Ticker } from './BinanceMessages';
 
 export type BinanceWebsocketName = 'ticker' | 'orderbook' | 'candlestick';
 
@@ -151,7 +152,6 @@ export class BinanceWebsocketAPI {
     } 
 
     stopAllStreams(): void {
-
         const binanceWsAPI = this.binanceInstance.websockets;
 
         this.observables.forEach((value) => {
@@ -167,6 +167,7 @@ export class BinanceWebsocketAPI {
         if (pair) {
             const binanceWsAPI = this.binanceInstance.websockets;
             binanceWsAPI.terminate(pair.endpoint);
+            this.observables.delete('mapKey');
             return true
         } else {
             return false;

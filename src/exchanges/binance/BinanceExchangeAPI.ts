@@ -1,15 +1,16 @@
 /* tslint:disable */
 import { PublicExchangeAPI, Product, CandleRequestOptions, Candle, Ticker } from '../PublicExchangeAPI';
-import { AuthenticatedExchangeAPI, Balances } from '../AuthenticatedExchangeAPI';
+import { AuthenticatedExchangeAPI, Balances, AvailableBalance } from '../AuthenticatedExchangeAPI';
 import { ExchangeTransferAPI, CryptoAddress, TransferResult, WithdrawalRequest, TransferRequest } from '../ExchangeTransferAPI';
 import { PlaceOrderMessage } from '../../core';
 import { LiveOrder, BookBuilder } from '../../lib';
 import { BigJS, Big } from '../../lib/types';
-import { BinanceConfig, createBinanceInstance } from './BinanceAuth';
+import { BinanceConfig, createBinanceInstance, placeOrder } from './BinanceAuth';
 import { ExchangeAuthConfig } from '../AuthConfig';
 import { GTTError } from '../../lib/errors';
-import { PRODUCT_MAP, Binance24Ticker, BinanceOrderBook, convertBinanceOrderBookToGdaxBook } from './BinanceCommon';
+import { PRODUCT_MAP, convertBinanceOrderBookToGdaxBook } from './BinanceCommon';
 import { Logger } from '../../utils';
+import { BinanceOrderBook, Binance24Ticker, BinanceBalances } from './BinanceMessages';
 
 export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExchangeAPI, ExchangeTransferAPI {
 
@@ -18,11 +19,9 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     private readonly logger: Logger;
     private binanceInstance: any;
 
-
     get api() {
         return this.binanceInstance;
     }
-    // private readonly config : BinanceConfig;
 
     constructor(config: BinanceConfig) {
         this.auth = config.auth && config.auth.key && config.auth.secret ? config.auth : undefined;
@@ -43,11 +42,15 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     placeOrder(order: PlaceOrderMessage): Promise<LiveOrder> {
-        throw new Error('Method not implemented.');
+        const promise: Promise<LiveOrder> = this.checkAuth().then(() => {
+            return placeOrder(order, this.binanceInstance);
+        });
+        return promise;
     }
 
     cancelOrder(id: string): Promise<string> {
-        throw new Error('Method not implemented.');
+        // const binanceSymbol = toBinanceSymbol(id);
+        throw new Error('Method not implemented.')
     }
 
     cancelAllOrders(gdaxProduct?: string): Promise<string[]> {
@@ -63,7 +66,38 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     loadBalances(): Promise<Balances> {
-        throw new Error('Method not implemented.');
+        return this.checkAuth().then(
+            () => this.binanceInstance.balance((error: any, response: BinanceBalances) => {
+                if (error) {
+                    if (error.statusCode && error.statusCode !== 200) {
+                        if (error.body) {
+                            const errorBody = JSON.parse(error.body);
+                            return Promise.reject(new Error('Error loading balances from Binance.\nCode: ' + errorBody.code + '\nMessage: ' + errorBody.msg))
+                        }
+                    }
+                    return Promise.reject(new Error('An error occurred during the loading balances from Binance: ' + error));
+                }
+
+                if (response) {
+                    let balances: Balances = {};
+                    const currentUser = 'USER';
+                    balances[currentUser] = {}
+
+                    for (let property in response) {
+                        const available: AvailableBalance = {
+                            available: Big(response[property].available),
+                            balance: Big(response[property].onOrder)
+                        }
+                        balances[currentUser][property] = available;
+                    }
+                    return Promise.resolve(balances);
+                } else {
+                    return Promise.reject(new Error('There is no available Balance for the current account.'));
+                }
+            })
+        ).then((balances: Balances) => {
+            return Promise.resolve(balances);
+        });
     }
 
     loadProducts(): Promise<Product[]> {
@@ -103,7 +137,8 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
                 if (error) {
                     if (error.statusCode && error.statusCode !== 200) {
                         if (error.body) {
-                            reject(new Error('Error loading ticker from Binance.\nCode:' + error.body.code + '\nMessage:' + error.body.msg))
+                            const errorBody = JSON.parse(error.body);
+                            reject(new Error('Error loading ticker from Binance.\nCode: ' + errorBody.code + '\nMessage: ' + errorBody.msg))
                             return;
                         }
                     }
@@ -163,6 +198,17 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
         });
 
         return promise;
+    }
+
+    checkAuth(): Promise<ExchangeAuthConfig> {
+        return new Promise<ExchangeAuthConfig>((resolve, reject) => {
+            const apiKey = this.binanceInstance.getOption('APIKEY');
+            const apiSecret = this.binanceInstance.getOption('APISECRET');
+            if ((apiSecret && apiKey) || this.auth) {
+                return resolve(this.auth);
+            }
+            return reject(new Error('You cannot make authenticated requests if a ExchangeAuthConfig object was not provided to the BinanceExchangeAPI constructor'));
+        });
     }
 
     /**

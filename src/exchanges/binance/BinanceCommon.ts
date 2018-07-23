@@ -1,9 +1,10 @@
+/* tslint:disable */
 import { BookBuilder, AggregatedLevelWithOrders } from '../../lib';
 import { Logger } from '../../utils';
 import { Side } from '../../lib/sides';
 import { BigJS, Big } from '../../lib/types';
+import { BinanceOrderBook } from './BinanceMessages';
 
-/* tslint:disable */
 /**
  * A map of supported GDAX books to the equivalent Binance book
  */
@@ -16,50 +17,7 @@ export const PRODUCT_MAP: { [index: string]: string } = {
   'ETH-BTC': 'ETHBTC'
 };
 
-export interface BinanceBookTicker {
-  symbol: string;
-  bidPrice: string;
-  bidQty: string;
-  askPrice: string;
-  askQty: string;
-}
-
-/**
- * 24hr Ticker statistics for a single symbol pushed every second
- */
-export interface Binance24Ticker {
-  eventType: string;
-  eventTime: number;
-  symbol: string;
-  priceChange: string;
-  percentChange: string;
-  averagePrice: string;
-  prevClose: string;
-  close: string;
-  closeQty: string;
-  bestBid: string;
-  bestBidQty: string;
-  bestAsk: string;
-  bestAskQty: string;
-  open: string;
-  high: string;
-  low: string;
-  volume: string;
-  quoteVolume: string;
-  openTime: string;
-  closeTime: string;
-  firstTradeId: string;
-  lastTradeId: string;
-  numTrades: string;
-}
-
-export interface BinanceOrderBook {
-  bids: any;
-  asks: any;
-}
-
-    // -------------------------- Helper methods -------------------------------------------------
-
+// -------------------------- Helper methods -------------------------------------------------
 
 /**
 * Returns the Binance product that's equivalent to the given GDAX product. If it doesn't exist,
@@ -77,7 +35,7 @@ export function toBinanceSymbol(gdaxProduct: string) {
  * @param book The Binance order book received from request
  * @param logger The logger class
  */
-export function convertBinanceOrderBookToGdaxBook(book: BinanceOrderBook, logger ?: Logger): BookBuilder {
+export function convertBinanceOrderBookToGdaxBook(book: BinanceOrderBook, logger?: Logger): BookBuilder {
   const bookBuilder = new BookBuilder(logger);
 
   for (let price in book.asks) {
@@ -110,7 +68,6 @@ export function convertBinanceOrderBookToGdaxBook(book: BinanceOrderBook, logger
       bookBuilder.modify(orderPrice, newSize, side);
     }
   }
-
 
   /**
    * Convert order to proper formate

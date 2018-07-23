@@ -75,7 +75,7 @@ export interface LiveOrder extends Level3Order {
     time: Date;
     productId: string;
     status: string;
-    extra: any;
+    extra?: any;
 }
 
 /**
