@@ -4,7 +4,7 @@
  * @param {Function} fn
  * @class {MochaDone}
  */
-export class MochaDone {
+export class MochaDoneWrapper {
 
     public verbose: boolean = false;
     private called: boolean = false;

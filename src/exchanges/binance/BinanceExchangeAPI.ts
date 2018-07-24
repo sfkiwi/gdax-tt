@@ -67,37 +67,44 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
 
     loadBalances(): Promise<Balances> {
         return this.checkAuth().then(
-            () => this.binanceInstance.balance((error: any, response: BinanceBalances) => {
-                if (error) {
-                    if (error.statusCode && error.statusCode !== 200) {
-                        if (error.body) {
-                            const errorBody = JSON.parse(error.body);
-                            return Promise.reject(new Error('Error loading balances from Binance.\nCode: ' + errorBody.code + '\nMessage: ' + errorBody.msg))
+            () => {
+                let promise : Promise<Balances>;
+                promise = new Promise<Balances>((resolve, reject) => {
+                    this.binanceInstance.balance((error: any, response: BinanceBalances) => {
+                        if (error) {
+                            if (error.statusCode && error.statusCode !== 200) {
+                                if (error.body) {
+                                    const errorBody = JSON.parse(error.body);
+                                    reject(new Error('Error loading balances from Binance.\nCode: ' + errorBody.code + '\nMessage: ' + errorBody.msg))
+                                    return;
+                                }
+                            }
+                            reject(new Error('An error occurred during the loading balances from Binance: ' + error));
+                            return;
                         }
-                    }
-                    return Promise.reject(new Error('An error occurred during the loading balances from Binance: ' + error));
-                }
-
-                if (response) {
-                    let balances: Balances = {};
-                    const currentUser = 'USER';
-                    balances[currentUser] = {}
-
-                    for (let property in response) {
-                        const available: AvailableBalance = {
-                            available: Big(response[property].available),
-                            balance: Big(response[property].onOrder)
+    
+                        if (response !== undefined) {
+                            let balances: Balances = {};
+                            const currentUser = 'USER';
+                            balances[currentUser] = {}
+    
+                            for (let property in response) {
+                                const available: AvailableBalance = {
+                                    available: Big(response[property].available),
+                                    balance: Big(response[property].onOrder)
+                                }
+                                balances[currentUser][property] = available;
+                            }
+                            resolve(balances);
+                        } else {
+                            reject(new Error('There is no available Balance for the current account.'));
                         }
-                        balances[currentUser][property] = available;
-                    }
-                    return Promise.resolve(balances);
-                } else {
-                    return Promise.reject(new Error('There is no available Balance for the current account.'));
-                }
-            })
-        ).then((balances: Balances) => {
-            return Promise.resolve(balances);
-        });
+                    });
+                });
+                
+                return promise;
+            }
+        )
     }
 
     loadProducts(): Promise<Product[]> {
