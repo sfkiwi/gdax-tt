@@ -1,4 +1,12 @@
 
+export type OrderStatus = 'NEW' | 'PARTIALLY_FILLED' | 'FILLED' | 'CANCELED' | 'PENDING_CANCEL' | 'REJECTED' | 'EXPIRED';
+export type OrderType = 'LIMIT' | 'MARKET' | 'STOP_LOSS' | 'STOP_LOSS_LIMIT' | 'TAKE_PROFIT' | 'TAKE_PROFIT_LIMIT' | 'LIMIT_MAKER';
+export type OrderSide = 'BUY' | 'SELL';
+export type TimeInForce = 'GTC' | 'IOC' | 'FOK';
+
+export type BinanceResponseFunction = (error: any, response: any) => void;
+export type BinanceOrderRequestFunction = (symbol: string | boolean | any[], callback: BinanceResponseFunction) => void;
+
 export interface BinanceBookTicker {
     symbol: string;
     bidPrice: string;
@@ -41,20 +49,51 @@ export interface BinanceOrderBook {
     asks: any;
 }
 
-export interface BinanceOrderResponse {
+/**
+ * Binance base order response
+ */
+export interface BinanceOrderResponseBase {
     symbol: string;
     orderId: number;
     clientOrderId: string;
-    transactTime: number;
     price: string;
     origQty: string;
     executedQty: string;
-    status: string;
-    timeInForce: string;
-    type: string;
-    side: string;
+    status: OrderStatus;
+    timeInForce: TimeInForce;
+    type: OrderType;
+    side: OrderSide;
 }
 
+/**
+ * placeOrder response.
+ */
+export interface BinanceOrderResponse extends BinanceOrderResponseBase {
+    transactTime: number;
+}
+
+/**
+ * loadOrder response.
+ */
+export interface BinanceOpenOrderResponse extends BinanceOrderResponseBase {
+    cummulativeQuoteQty: string;
+    stopPrice: string;
+    icebergQty: string;
+    time: number;
+    updateTime: number;
+    isWorking: boolean;
+}
+
+/**
+ * loadAllOrders response.
+ */
+export interface BinanceAllOrders {
+    [indexer: number]: BinanceOpenOrderResponse;
+}
+
+/**
+ * loadBalance response.
+ */
 export interface BinanceAvailableBalances {
     available: string;
     onOrder: string;
@@ -62,23 +101,4 @@ export interface BinanceAvailableBalances {
 
 export interface BinanceBalances {
     [currency: string]: BinanceAvailableBalances;
-}
-
-export interface BinanceOpenOrder {
-    symbol: string;
-    orderId: number;
-    clientOrderId: string;
-    price: string;
-    origQty: string;
-    executedQty: string;
-    cummulativeQuoteQty: string;
-    status: string;
-    timeInForce: string;
-    type: string;
-    side: string;
-    stopPrice: string;
-    icebergQty: string;
-    time: number;
-    updateTime: number;
-    isWorking: boolean;
 }

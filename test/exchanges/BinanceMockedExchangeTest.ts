@@ -10,8 +10,8 @@ import { PlaceOrderMessage } from '../../src/core';
 import { LiveOrder } from '../../src/lib';
 import { BinanceOrderResponse } from '../../src/exchanges/binance/BinanceMessages';
 
-const TIMEOUT = 10000;
 const BASE_ENDPOINT = 'https://api.binance.com/api/';
+const VERBOSE_NOCK = false;
 
 /***************************************************************
  *  BINANCE CONFIG
@@ -33,6 +33,7 @@ const auth: ExchangeAuthConfig = {
  *  DEMO REQUEST ANSWERS 
  ***************************************************************/
 
+/** used by binance.loadBalance */
 const BinanceBalanceDemo = {
     balances: [
         { asset: 'BTC', free: '0.77206464', locked: '0.00177975' },
@@ -45,6 +46,7 @@ const BinanceBalanceDemo = {
     ]
 }
 
+/** used by binance.placeOrder */
 const BinanceLimitBuyResponse: BinanceOrderResponse = {
     symbol: 'BNBETH',
     orderId: 4480717,
@@ -58,6 +60,28 @@ const BinanceLimitBuyResponse: BinanceOrderResponse = {
     type: 'LIMIT',
     side: 'BUY'
 }
+
+const BinanceAllOpenOrders = [
+    {
+        symbol: "LTCBTC",
+        orderId: 1,
+        clientOrderId: "myOrder1",
+        price: "0.1",
+        origQty: "1.0",
+        executedQty: "0.0",
+        cummulativeQuoteQty: "0.0",
+        status: "NEW",
+        timeInForce: "GTC",
+        type: "LIMIT",
+        side: "BUY",
+        stopPrice: "0.0",
+        icebergQty: "0.0",
+        time: 1499827319559,
+        updateTime: 1499827319559,
+        isWorking: true
+    }
+]
+
 
 /***************************************************************
  *  HELPER FUNCTIONS 
@@ -92,9 +116,13 @@ function filterPath(path: string): string {
 }
 
 function buildNockRequest(baseEndpoint: string = ''): nock.Scope {
-    return nock(BASE_ENDPOINT + baseEndpoint)
-        .log(console.log)
+    let nockScope = nock(BASE_ENDPOINT + baseEndpoint)
         .filteringPath(filterPath);
+
+    if (VERBOSE_NOCK) {
+        nockScope.log(console.log);
+    }
+    return nockScope;
 }
 
 /***************************************************************
@@ -129,8 +157,6 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
 
     it('[MOCKED] market place order', function (this: Mocha.IContextDefinition, done) {
 
-        this.timeout(TIMEOUT);
-
         const order: PlaceOrderMessage = {
             productId: 'BNBBTC',
             orderType: 'limit',
@@ -156,8 +182,52 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
 
         binance.placeOrder(order).then((liveOrder: LiveOrder) => {
             assert(typeof liveOrder === 'object');
+            assert.equal(liveOrder.status, BinanceLimitBuyResponse.status);
+            assert.equal(liveOrder.extra.clientOrderId, BinanceLimitBuyResponse.clientOrderId);
+            assert.equal(liveOrder.productId, BinanceLimitBuyResponse.symbol);
+            assert.equal(liveOrder.id, BinanceLimitBuyResponse.orderId.toString());
             done();
         });
+    });
+
+    it('[MOCKED] get all open orders for a symbol', function (this: Mocha.IContextDefinition, done) {
+
+        let parameters = {
+            symbol: 'LTCBTC'
+        };
+
+        buildNockRequest('v3/allOrders')
+            .get(buildEndpoint(parameters))
+            .reply(200, JSON.stringify(BinanceAllOpenOrders));
+
+        binance.loadAllOrders('LTCBTC').then((liveOrders: LiveOrder[]) => {
+            assert(Array.isArray(liveOrders));
+            assert(liveOrders.length > 0);
+            const testLiveOrder = liveOrders[0];
+            assert.equal(testLiveOrder.id, BinanceAllOpenOrders[0].orderId.toString());
+            assert.equal(testLiveOrder.extra.clientOrderId, BinanceAllOpenOrders[0].clientOrderId);
+            assert.equal(testLiveOrder.extra.isWorking, BinanceAllOpenOrders[0].isWorking);
+            done();
+        });
+
+    });
+
+    it('[MOCKED] get all open orders', function (this: Mocha.IContextDefinition, done) {
+
+        buildNockRequest('v3/openOrders')
+            .get(buildEndpoint())
+            .reply(200, JSON.stringify(BinanceAllOpenOrders));
+
+        binance.loadAllOrders().then((liveOrders: LiveOrder[]) => {
+            assert(Array.isArray(liveOrders));
+            assert(liveOrders.length > 0);
+            const testLiveOrder = liveOrders[0];
+            assert.equal(testLiveOrder.id, BinanceAllOpenOrders[0].orderId.toString());
+            assert.equal(testLiveOrder.extra.clientOrderId, BinanceAllOpenOrders[0].clientOrderId);
+            assert.equal(testLiveOrder.extra.isWorking, BinanceAllOpenOrders[0].isWorking);
+            done();
+        });
+
     });
 
 

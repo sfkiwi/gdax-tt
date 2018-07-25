@@ -8,9 +8,9 @@ import { BigJS, Big } from '../../lib/types';
 import { BinanceConfig, createBinanceInstance, placeOrder } from './BinanceAuth';
 import { ExchangeAuthConfig } from '../AuthConfig';
 import { GTTError } from '../../lib/errors';
-import { PRODUCT_MAP, convertBinanceOrderBookToGdaxBook } from './BinanceCommon';
+import { PRODUCT_MAP, convertBinanceOrderBookToGdaxBook, toBinanceSymbol, convertBinanceOrderToGdaxOrder } from './BinanceCommon';
 import { Logger } from '../../utils';
-import { BinanceOrderBook, Binance24Ticker, BinanceBalances } from './BinanceMessages';
+import { BinanceOrderBook, Binance24Ticker, BinanceBalances, BinanceOpenOrderResponse, BinanceOrderRequestFunction } from './BinanceMessages';
 
 export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExchangeAPI, ExchangeTransferAPI {
 
@@ -58,52 +58,76 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     loadOrder(id: string): Promise<LiveOrder> {
+        return this.checkAuth().then(() => {
+            let promise = new Promise<LiveOrder>((resolve, reject) => {
+                //const binanceSymbol = toBinanceSymbol(gdaxProduct);
+                this.binanceInstance.openOrders()
+                //this.binanceInstance.orderStatus()
+            });
+            return promise;
+        });
         throw new Error('Method not implemented.');
     }
 
     loadAllOrders(gdaxProduct?: string): Promise<LiveOrder[]> {
-        throw new Error('Method not implemented.');
+        return this.checkAuth().then(() => {
+
+            let binanceSymbol: string|boolean;
+            let binanceFunction: BinanceOrderRequestFunction;
+            if (gdaxProduct === undefined || gdaxProduct === null) {
+                binanceSymbol = false;
+                binanceFunction = this.binanceInstance.openOrders; 
+            } else {
+                binanceSymbol = toBinanceSymbol(gdaxProduct);
+                binanceFunction = this.binanceInstance.allOrders;
+            }
+
+            let promise = new Promise<LiveOrder[]>((resolve, reject) => {
+                binanceFunction(binanceSymbol, (error: any, allOrders: Array<BinanceOpenOrderResponse>) => {
+                    if (this.checkResponseError('loading all orders', error, reject)) {
+                        return;
+                    }
+                    let liveOrders:LiveOrder[] = [];
+
+                    for (let i = 0; i < allOrders.length; i++) {
+                        liveOrders.push(convertBinanceOrderToGdaxOrder(allOrders[i]));
+                    } 
+                    resolve(liveOrders);
+
+                });
+            });
+            return promise;
+        });
     }
 
     loadBalances(): Promise<Balances> {
-        return this.checkAuth().then(
-            () => {
-                let promise : Promise<Balances>;
-                promise = new Promise<Balances>((resolve, reject) => {
-                    this.binanceInstance.balance((error: any, response: BinanceBalances) => {
-                        if (error) {
-                            if (error.statusCode && error.statusCode !== 200) {
-                                if (error.body) {
-                                    const errorBody = JSON.parse(error.body);
-                                    reject(new Error('Error loading balances from Binance.\nCode: ' + errorBody.code + '\nMessage: ' + errorBody.msg))
-                                    return;
-                                }
+        return this.checkAuth().then(() => {
+            let promise = new Promise<Balances>((resolve, reject) => {
+                this.binanceInstance.balance((error: any, response: BinanceBalances) => {
+                    if (this.checkResponseError('loading balances', error, reject)) {
+                        return;
+                    }
+                    if (response !== undefined) {
+                        let balances: Balances = {};
+                        const currentUser = 'USER';
+                        balances[currentUser] = {}
+
+                        for (let property in response) {
+                            const available: AvailableBalance = {
+                                available: Big(response[property].available),
+                                balance: Big(response[property].onOrder)
                             }
-                            reject(new Error('An error occurred during the loading balances from Binance: ' + error));
-                            return;
+                            balances[currentUser][property] = available;
                         }
-    
-                        if (response !== undefined) {
-                            let balances: Balances = {};
-                            const currentUser = 'USER';
-                            balances[currentUser] = {}
-    
-                            for (let property in response) {
-                                const available: AvailableBalance = {
-                                    available: Big(response[property].available),
-                                    balance: Big(response[property].onOrder)
-                                }
-                                balances[currentUser][property] = available;
-                            }
-                            resolve(balances);
-                        } else {
-                            reject(new Error('There is no available Balance for the current account.'));
-                        }
-                    });
+                        resolve(balances);
+                    } else {
+                        reject(new Error('There is no available Balance for the current account.'));
+                    }
                 });
-                
-                return promise;
-            }
+            });
+
+            return promise;
+        }
         )
     }
 
@@ -119,13 +143,10 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
         const binanceSymbol = BinanceExchangeAPI.product(gdaxProduct);
         const promise: Promise<BookBuilder> = new Promise<BookBuilder>((resolve, reject) => {
             this.binanceInstance.depth(binanceSymbol, (error: any, data: BinanceOrderBook, symbol: string) => {
-                if (error) {
-                    reject(new Error('An error occurred during the loading order book from Binance: ' + error));
+                if (this.checkResponseError('loading order book', error, reject)) {
                     return;
                 }
-
                 const book = convertBinanceOrderBookToGdaxBook(data, this.logger);
-
                 resolve(book);
 
             })
@@ -141,15 +162,7 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
         const binanceSymbol = BinanceExchangeAPI.product(gdaxProduct);
         const promise: Promise<Ticker> = new Promise<Ticker>((resolve, reject) => {
             this.binanceInstance.prevDay(binanceSymbol, (error: any, response: Binance24Ticker) => {
-                if (error) {
-                    if (error.statusCode && error.statusCode !== 200) {
-                        if (error.body) {
-                            const errorBody = JSON.parse(error.body);
-                            reject(new Error('Error loading ticker from Binance.\nCode: ' + errorBody.code + '\nMessage: ' + errorBody.msg))
-                            return;
-                        }
-                    }
-                    reject(new Error('An error occurred during the loading ticker from Binance: ' + error));
+                if (this.checkResponseError('loading ticker', error, reject)) {
                     return;
                 }
                 const ticker: Ticker = {
@@ -181,9 +194,7 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
         }
         const promise: Promise<Candle[]> = new Promise<Candle[]>((resolve, reject) => {
             this.binanceInstance.candlesticks(binanceSymbol, options.interval, (error: any, ticks: any) => {
-
-                if (error) {
-                    reject(error);
+                if (this.checkResponseError('loading candles', error, reject)) {
                     return;
                 }
                 let candleList: Candle[] = [];
@@ -212,9 +223,10 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
             const apiKey = this.binanceInstance.getOption('APIKEY');
             const apiSecret = this.binanceInstance.getOption('APISECRET');
             if ((apiSecret && apiKey) || this.auth) {
-                return resolve(this.auth);
+                resolve(this.auth);
+                return;
             }
-            return reject(new Error('You cannot make authenticated requests if a ExchangeAuthConfig object was not provided to the BinanceExchangeAPI constructor'));
+            reject(new Error('You cannot make authenticated requests if a ExchangeAuthConfig object was not provided to the BinanceExchangeAPI constructor'));
         });
     }
 
@@ -226,5 +238,26 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
      */
     static product(gdaxProduct: string) {
         return PRODUCT_MAP[gdaxProduct] || gdaxProduct;
+    }
+
+    /**
+     * Function to check generic error response from Binance API.
+     * @param messagePart Error message part (example: 'loading balances')
+     * @param error The error object
+     * @param reject The Promise reject function
+     */
+    private checkResponseError(messagePart: string, error: any, reject: (reason: any) => void) {
+        if (error === undefined || error === null)
+            return false;
+
+        if (error.statusCode && error.statusCode !== 200) {
+            if (error.body) {
+                const errorBody = JSON.parse(error.body);
+                reject(new Error('Error ' + messagePart + ' from Binance.\nCode: ' + errorBody.code + '\nMessage: ' + errorBody.msg))
+                return true;
+            }
+        }
+        reject(new Error('An error occurred during the ' + messagePart + ' from Binance: ' + error));
+        return true;
     }
 }

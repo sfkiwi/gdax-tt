@@ -1,9 +1,9 @@
 /* tslint:disable */
-import { BookBuilder, AggregatedLevelWithOrders } from '../../lib';
+import { BookBuilder, AggregatedLevelWithOrders, LiveOrder } from '../../lib';
 import { Logger } from '../../utils';
 import { Side } from '../../lib/sides';
 import { BigJS, Big } from '../../lib/types';
-import { BinanceOrderBook } from './BinanceMessages';
+import { BinanceOrderBook, BinanceOpenOrderResponse, BinanceOrderResponse } from './BinanceMessages';
 
 /**
  * A map of supported GDAX books to the equivalent Binance book
@@ -30,7 +30,7 @@ export function toBinanceSymbol(gdaxProduct: string) {
 }
 
 /**
- * Convert Binancer order book to GDAX Order book format.
+ * Convert Binance order book to GDAX Order book format.
  * 
  * @param book The Binance order book received from request
  * @param logger The logger class
@@ -70,7 +70,7 @@ export function convertBinanceOrderBookToGdaxBook(book: BinanceOrderBook, logger
   }
 
   /**
-   * Convert order to proper formate
+   * Convert order to proper format
    * 
    * @param side sell or buy
    * @param orderPrice the order price
@@ -88,5 +88,47 @@ export function convertBinanceOrderBookToGdaxBook(book: BinanceOrderBook, logger
     });
     return level;
   }
-  return bookBuilder;
+}
+
+
+function isOpenOrder(binanceOrder: BinanceOpenOrderResponse | BinanceOrderResponse): binanceOrder is BinanceOpenOrderResponse {
+  return (<BinanceOpenOrderResponse>binanceOrder).cummulativeQuoteQty !== undefined ||
+    (<BinanceOpenOrderResponse>binanceOrder).stopPrice !== undefined ||
+    (<BinanceOpenOrderResponse>binanceOrder).icebergQty !== undefined ||
+    (<BinanceOpenOrderResponse>binanceOrder).updateTime !== undefined ||
+    (<BinanceOpenOrderResponse>binanceOrder).isWorking !== undefined;
+}
+
+export function convertBinanceOrderToGdaxOrder(binanceOrder: BinanceOpenOrderResponse | BinanceOrderResponse): LiveOrder {
+
+  let extra: any = {
+    clientOrderId: binanceOrder.clientOrderId,
+    timeInForce: binanceOrder.timeInForce,
+    type: binanceOrder.type,
+  }
+
+  let time: Date;
+
+  if (isOpenOrder(binanceOrder)) {
+    extra.cummulativeQuoteQty = binanceOrder.cummulativeQuoteQty;
+    extra.stopPrice = binanceOrder.stopPrice;
+    extra.icebergQty = binanceOrder.icebergQty;
+    extra.updateTime = binanceOrder.updateTime;
+    extra.isWorking = binanceOrder.isWorking;
+    time = new Date(binanceOrder.time);
+  } else {
+    time = new Date(binanceOrder.transactTime);
+  }
+
+  const liveOrder: LiveOrder = {
+    productId: binanceOrder.symbol,
+    id: (binanceOrder.orderId) ? binanceOrder.orderId.toString() : undefined,
+    price: Big(binanceOrder.price),
+    side: (binanceOrder.side === 'BUY') ? 'buy' : 'sell',
+    size: Big(binanceOrder.executedQty),
+    status: binanceOrder.status,
+    time: time,
+    extra: extra
+  }
+  return liveOrder;
 }

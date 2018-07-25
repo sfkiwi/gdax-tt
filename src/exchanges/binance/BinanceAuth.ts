@@ -3,10 +3,10 @@
 import { ExchangeAuthConfig } from '../AuthConfig';
 import { Logger } from '../../utils';
 import { PlaceOrderMessage } from '../../core';
-import { toBinanceSymbol } from './BinanceCommon';
+import { toBinanceSymbol, convertBinanceOrderToGdaxOrder } from './BinanceCommon';
 import { LiveOrder } from '../../lib';
 import { BinanceOrderResponse } from './BinanceMessages';
-import { Big } from '../../lib/types';
+
 const Binance = require('node-binance-api');
 
 export interface BinanceLoggerCallback { (message: string): void }
@@ -65,10 +65,8 @@ export interface BinanceConfig {
 
 
 export function createBinanceInstance(auth: ExchangeAuthConfig, options?: BinanceOptions) {
-
     const key = (auth && auth.key) ? auth.key : '';
     const secret = (auth && auth.secret) ? auth.secret : '';
-
     const binanceOptions = {
         ...{
             APIKEY: key,
@@ -76,9 +74,6 @@ export function createBinanceInstance(auth: ExchangeAuthConfig, options?: Binanc
         }
         , ...options
     };
-
-
-
     return new Binance().options(binanceOptions);
 }
 
@@ -122,20 +117,7 @@ export function placeOrder(order: PlaceOrderMessage, binanceAPI: any): Promise<L
                     return;
                 }
 
-                const liveOrder: LiveOrder = {
-                    productId: binanceSymbol,
-                    id: (response.orderId) ? response.orderId.toString() : undefined,
-                    price: Big(response.price),
-                    side: (response.side === 'BUY') ? 'buy' : 'sell',
-                    size: Big(response.executedQty),
-                    status: response.status,
-                    time: new Date(response.transactTime),
-                    extra: {
-                        clientOrderId: response.clientOrderId,
-                        timeInForce: response.timeInForce,
-                        type: response.type,
-                    }
-                }
+                const liveOrder: LiveOrder = convertBinanceOrderToGdaxOrder(response);
                 resolve(liveOrder);
             })
         };
@@ -151,6 +133,8 @@ export function placeOrder(order: PlaceOrderMessage, binanceAPI: any): Promise<L
     });
 
 }
+
+
 
 // export function getCurrentOpenOrders(binanceAPI: any) {
 //     binanceAPI.openOrders(false, (error: any, response: Array<BinanceOpenOrder>) => {
