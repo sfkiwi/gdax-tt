@@ -43,7 +43,7 @@ export interface AuthenticatedExchangeAPI {
     /**
      * Load details for a user-placed order on the exchange
      */
-    loadOrder(id: string): Promise<LiveOrder>;
+    loadOrder(id: string | number, gdaxProduct?: string): Promise<LiveOrder>;
 
     /**
      * Loads all currently active orders placed by the user (i.e. not the full orderbook). If product is undefined, load

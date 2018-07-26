@@ -4,6 +4,10 @@ export type OrderType = 'LIMIT' | 'MARKET' | 'STOP_LOSS' | 'STOP_LOSS_LIMIT' | '
 export type OrderSide = 'BUY' | 'SELL';
 export type TimeInForce = 'GTC' | 'IOC' | 'FOK';
 
+export type RateLimitType = 'REQUESTS_WEIGHT' | 'ORDERS';
+export type RateLimitInterval = 'SECOND' | 'MINUTE' | 'DAY';
+export type FilterType = 'PRICE_FILTER' | 'LOT_SIZE' | 'MIN_NOTIONAL' | 'ICEBERG_PARTS' | 'MAX_NUM_ALGO_ORDERS';
+
 export type BinanceResponseFunction = (error: any, response: any) => void;
 export type BinanceOrderRequestFunction = (symbol: string | boolean | any[], callback: BinanceResponseFunction) => void;
 
@@ -49,9 +53,9 @@ export interface BinanceOrderBook {
     asks: any;
 }
 
-/**
+/**********************************************
  * Binance base order response
- */
+ *********************************************/
 export interface BinanceOrderResponseBase {
     symbol: string;
     orderId: number;
@@ -65,16 +69,16 @@ export interface BinanceOrderResponseBase {
     side: OrderSide;
 }
 
-/**
+/**********************************************
  * placeOrder response.
- */
+ **********************************************/
 export interface BinanceOrderResponse extends BinanceOrderResponseBase {
     transactTime: number;
 }
 
-/**
+/**********************************************
  * loadOrder response.
- */
+ **********************************************/
 export interface BinanceOpenOrderResponse extends BinanceOrderResponseBase {
     cummulativeQuoteQty: string;
     stopPrice: string;
@@ -84,16 +88,24 @@ export interface BinanceOpenOrderResponse extends BinanceOrderResponseBase {
     isWorking: boolean;
 }
 
-/**
+/**********************************************
  * loadAllOrders response.
- */
-export interface BinanceAllOrders {
-    [indexer: number]: BinanceOpenOrderResponse;
+ *********************************************/
+export interface BinanceAllOrders extends Array<BinanceOpenOrderResponse> {}
+
+/**********************************************
+ * Binance cancel order response.
+ *********************************************/
+export interface BinanceCancelOrder {
+    symbol: string;
+    origClientOrderId: string;
+    orderId: number;
+    clientOrderId: string;
 }
 
-/**
+/**********************************************
  * loadBalance response.
- */
+ **********************************************/
 export interface BinanceAvailableBalances {
     available: string;
     onOrder: string;
@@ -101,4 +113,47 @@ export interface BinanceAvailableBalances {
 
 export interface BinanceBalances {
     [currency: string]: BinanceAvailableBalances;
+}
+
+/*********************************************
+* loadProducts responses
+**********************************************/
+
+export interface BinanceFilter {
+    filterType: FilterType;
+    minPrice?: string;
+    maxPrice?: string;
+    tickSize?: string;
+    minQty?: string;
+    maxQty?: string;
+    stepSize?: string;
+    minNotional?: string;
+    limit?: number;
+    maxNumAlgoOrders?: number;
+}
+
+export interface BinanceProduct {
+    symbol: string;
+    status: string;
+    baseAsset: string;
+    baseAssetPrecision: number;
+    quoteAsset: string;
+    quotePrecision: number;
+    orderTypes: OrderType[];
+    icebergAllowed: boolean;
+    filters: BinanceFilter[];
+}
+
+export interface BinanceRateLimit {
+    rateLimitType: RateLimitType;
+    interval: RateLimitInterval;
+    limit: number;
+}
+
+export interface BinanceExchangeInformation {
+    timezone: string;
+    serverTime: number;
+    rateLimits: BinanceRateLimit[];
+    exchangeFilters: any[];
+    symbols: BinanceProduct[];
 }

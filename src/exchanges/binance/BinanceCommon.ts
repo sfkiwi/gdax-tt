@@ -3,7 +3,8 @@ import { BookBuilder, AggregatedLevelWithOrders, LiveOrder } from '../../lib';
 import { Logger } from '../../utils';
 import { Side } from '../../lib/sides';
 import { BigJS, Big } from '../../lib/types';
-import { BinanceOrderBook, BinanceOpenOrderResponse, BinanceOrderResponse } from './BinanceMessages';
+import { BinanceOrderBook, BinanceOpenOrderResponse, BinanceOrderResponse, BinanceProduct, FilterType, BinanceFilter } from './BinanceMessages';
+import { Product } from '../PublicExchangeAPI';
 
 /**
  * A map of supported GDAX books to the equivalent Binance book
@@ -25,9 +26,19 @@ export const PRODUCT_MAP: { [index: string]: string } = {
 * @param gdaxProduct
 * @returns {string} Binance product code
 */
-export function toBinanceSymbol(gdaxProduct: string) {
+export function toBinanceSymbol(gdaxProduct: string): string {
   return PRODUCT_MAP[gdaxProduct] || gdaxProduct;
 }
+
+/**
+ * A map of supported Binance books to the equivalent GDAX book
+ */
+export function fromBinanceSymbol(binanceProduct: string): string {
+  const base = binanceProduct.slice(0, 3);
+  const quote = binanceProduct.slice(3, 6);
+  return base + '-' + quote;
+}
+
 
 /**
  * Convert Binance order book to GDAX Order book format.
@@ -131,4 +142,43 @@ export function convertBinanceOrderToGdaxOrder(binanceOrder: BinanceOpenOrderRes
     extra: extra
   }
   return liveOrder;
+}
+
+export function convertBinanceProductToGdaxProduct(binanceProduct: BinanceProduct): Product {
+
+  function findFilter(filterType: FilterType, binanceFilters: BinanceFilter[]) {
+
+    if (binanceFilters !== undefined || binanceFilters !== null)
+      return null;
+
+    for (let i = 0; i < binanceFilters.length; i++) {
+      if (binanceFilters[i].filterType === filterType) {
+        return binanceFilters[i];
+      }
+    }
+    return null;
+  }
+
+  const priceFilter = findFilter('PRICE_FILTER', binanceProduct.filters);
+  let minPrice, maxPrice, tickSize;
+
+  if (priceFilter !== null) {
+    minPrice = priceFilter.minPrice
+    maxPrice = priceFilter.maxPrice;
+    tickSize = priceFilter.tickSize;
+  }
+
+  let product: Product = {
+    id: fromBinanceSymbol(binanceProduct.symbol),
+    sourceId: binanceProduct.symbol,
+    baseCurrency: binanceProduct.baseAsset,
+    quoteCurrency: binanceProduct.quoteAsset,
+    baseMaxSize: Big(maxPrice),
+    baseMinSize: Big(minPrice),
+    quoteIncrement: Big(tickSize),
+    sourceData: binanceProduct
+  }
+
+  return product;
+
 }

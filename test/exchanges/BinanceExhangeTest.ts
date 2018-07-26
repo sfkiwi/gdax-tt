@@ -2,7 +2,7 @@
 import * as assert from 'assert';
 import { BinanceConfig, BinanceOptions } from '../../src/exchanges/binance/BinanceAuth';
 import { BinanceExchangeAPI } from '../../src/exchanges/binance/BinanceExchangeAPI';
-import { CandleRequestOptions, Ticker } from '../../src/exchanges/PublicExchangeAPI';
+import { CandleRequestOptions, Ticker, Product } from '../../src/exchanges/PublicExchangeAPI';
 import { ExchangeAuthConfig } from '../../src/exchanges/AuthConfig';
 import { BinanceWebsocketAPI } from '../../src/exchanges/binance/BinanceWebsocketAPI';
 import { MochaDoneWrapper } from './MochaDoneWrapper';
@@ -129,7 +129,16 @@ describe('The Binance Exchange - REST API', () => {
             done();
         });
     });
+    
+    it('loads products', function (this: Mocha.IContextDefinition, done) {
 
+        this.timeout(TIMEOUT);
+
+        binance.loadProducts().then((products:Product[]) => {
+            assert(Array.isArray(products));
+            done();
+        });
+    })
 
 });
 

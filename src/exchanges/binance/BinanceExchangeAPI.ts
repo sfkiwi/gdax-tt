@@ -8,9 +8,9 @@ import { BigJS, Big } from '../../lib/types';
 import { BinanceConfig, createBinanceInstance, placeOrder } from './BinanceAuth';
 import { ExchangeAuthConfig } from '../AuthConfig';
 import { GTTError } from '../../lib/errors';
-import { PRODUCT_MAP, convertBinanceOrderBookToGdaxBook, toBinanceSymbol, convertBinanceOrderToGdaxOrder } from './BinanceCommon';
+import { PRODUCT_MAP, convertBinanceOrderBookToGdaxBook, toBinanceSymbol, convertBinanceOrderToGdaxOrder, convertBinanceProductToGdaxProduct } from './BinanceCommon';
 import { Logger } from '../../utils';
-import { BinanceOrderBook, Binance24Ticker, BinanceBalances, BinanceOpenOrderResponse, BinanceOrderRequestFunction } from './BinanceMessages';
+import { BinanceOrderBook, Binance24Ticker, BinanceBalances, BinanceOpenOrderResponse, BinanceOrderRequestFunction, BinanceAllOrders, BinanceExchangeInformation } from './BinanceMessages';
 
 export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExchangeAPI, ExchangeTransferAPI {
 
@@ -54,46 +54,63 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     cancelAllOrders(gdaxProduct?: string): Promise<string[]> {
-        throw new Error('Method not implemented.');
-    }
-
-    loadOrder(id: string): Promise<LiveOrder> {
         return this.checkAuth().then(() => {
-            let promise = new Promise<LiveOrder>((resolve, reject) => {
-                //const binanceSymbol = toBinanceSymbol(gdaxProduct);
-                this.binanceInstance.openOrders()
-                //this.binanceInstance.orderStatus()
+            let promise = new Promise<string[]>((resolve, reject) => {
+                const binanceSymbol = toBinanceSymbol(gdaxProduct);
+                this.binanceInstance.cancelOrders(binanceSymbol,(error: any, response: any) => {
+                    if (this.checkResponseError('cancel order', error, reject)) {
+                        return;
+                    }
+                    console.log(response);
+                    resolve();
+                });
             });
             return promise;
         });
-        throw new Error('Method not implemented.');
+    }
+
+    loadOrder(id: string | number, gdaxProduct?: string): Promise<LiveOrder> {
+        return this.checkAuth().then(() => {
+            let promise = new Promise<LiveOrder>((resolve, reject) => {
+                if (typeof id === 'number') {
+                    id = id.toString(10);
+                }
+                const binanceSymbol = toBinanceSymbol(gdaxProduct);
+                this.binanceInstance.orderStatus(binanceSymbol, id, (error: any, response: BinanceOpenOrderResponse) => {
+                    if (this.checkResponseError('loading order status', error, reject)) {
+                        return;
+                    }
+                    resolve(convertBinanceOrderToGdaxOrder(response));
+                });
+            });
+            return promise;
+        });
     }
 
     loadAllOrders(gdaxProduct?: string): Promise<LiveOrder[]> {
         return this.checkAuth().then(() => {
 
-            let binanceSymbol: string|boolean;
+            let binanceSymbol: string | boolean;
             let binanceFunction: BinanceOrderRequestFunction;
             if (gdaxProduct === undefined || gdaxProduct === null) {
                 binanceSymbol = false;
-                binanceFunction = this.binanceInstance.openOrders; 
+                binanceFunction = this.binanceInstance.openOrders;
             } else {
                 binanceSymbol = toBinanceSymbol(gdaxProduct);
                 binanceFunction = this.binanceInstance.allOrders;
             }
 
             let promise = new Promise<LiveOrder[]>((resolve, reject) => {
-                binanceFunction(binanceSymbol, (error: any, allOrders: Array<BinanceOpenOrderResponse>) => {
+                binanceFunction(binanceSymbol, (error: any, allOrders: BinanceAllOrders) => {
                     if (this.checkResponseError('loading all orders', error, reject)) {
                         return;
                     }
-                    let liveOrders:LiveOrder[] = [];
+                    let liveOrders: LiveOrder[] = [];
 
                     for (let i = 0; i < allOrders.length; i++) {
                         liveOrders.push(convertBinanceOrderToGdaxOrder(allOrders[i]));
-                    } 
+                    }
                     resolve(liveOrders);
-
                 });
             });
             return promise;
@@ -132,7 +149,21 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     loadProducts(): Promise<Product[]> {
-        throw new Error('Method not implemented.');
+        const promise: Promise<Product[]> = new Promise<Product[]>((resolve, reject) => {
+            this.binanceInstance.exchangeInfo((error: any, response: BinanceExchangeInformation) => {
+                if (this.checkResponseError('loading products', error, reject)) {
+                    return;
+                }
+                let products: Product[] = [];
+                for (let i = 0; i < response.symbols.length; i++) {
+                    const product = convertBinanceProductToGdaxProduct(response.symbols[i])
+                    products.push(product);
+                }
+                resolve(products);
+            });
+
+        });
+        return promise;
     }
 
     loadMidMarketPrice(gdaxProduct: string): Promise<BigJS> {
@@ -148,7 +179,6 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
                 }
                 const book = convertBinanceOrderBookToGdaxBook(data, this.logger);
                 resolve(book);
-
             })
         }).then((book: BookBuilder) => {
             return Promise.resolve(book);
@@ -230,6 +260,8 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
         });
     }
 
+    /* BINANCE SPECIFIC FUNCTIONS */
+
     /**
      * Returns the Binance product that's equivalent to the given GDAX product. If it doesn't exist,
      * return the given product
@@ -241,7 +273,7 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
     }
 
     /**
-     * Function to check generic error response from Binance API.
+     * Function to check generic errors response from Binance API.
      * @param messagePart Error message part (example: 'loading balances')
      * @param error The error object
      * @param reject The Promise reject function
@@ -257,7 +289,7 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
                 return true;
             }
         }
-        reject(new Error('An error occurred during the ' + messagePart + ' from Binance: ' + error));
+        reject(new Error('An error occurred during the ' + messagePart + ' from Binance: \n' + error));
         return true;
     }
 }
