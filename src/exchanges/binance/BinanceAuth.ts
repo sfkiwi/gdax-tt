@@ -1,15 +1,8 @@
-/* tslint:disable */
-
 import { ExchangeAuthConfig } from '../AuthConfig';
 import { Logger } from '../../utils';
-import { PlaceOrderMessage } from '../../core';
-import { toBinanceSymbol, convertBinanceOrderToGdaxOrder } from './BinanceCommon';
-import { LiveOrder } from '../../lib';
-import { BinanceOrderResponse } from './BinanceMessages';
-
 const Binance = require('node-binance-api');
 
-export interface BinanceLoggerCallback { (message: string): void }
+export type BinanceLoggerCallback = (message: string) => void;
 
 /**
  * Binance API options interface
@@ -63,80 +56,15 @@ export interface BinanceConfig {
     logger?: Logger;
 }
 
-
 export function createBinanceInstance(auth: ExchangeAuthConfig, options?: BinanceOptions) {
     const key = (auth && auth.key) ? auth.key : '';
     const secret = (auth && auth.secret) ? auth.secret : '';
     const binanceOptions = {
         ...{
             APIKEY: key,
-            APISECRET: secret
+            APISECRET: secret,
         }
         , ...options
     };
     return new Binance().options(binanceOptions);
 }
-
-
-
-export function placeOrder(order: PlaceOrderMessage, binanceAPI: any): Promise<LiveOrder> {
-
-    const binanceSymbol = toBinanceSymbol(order.productId);
-    const side = order.side.toUpperCase();
-    const flags = {
-        type: order.orderType.toUpperCase(),
-        stopPrice: order.stopPrice || undefined
-    };
-    const price = (order.side === 'buy' && order.orderType === 'market') ? 0 : parseFloat(order.price);
-    const quantity = parseInt(order.size, 10);
-
-    return new Promise<LiveOrder>((resolve, reject) => {
-
-        function binancePlaceOrder() {
-            /**
-             * Creates an order
-              * @param {string} side - BUY or SELL
-              * @param {string} symbol - the symbol to buy
-              * @param {numeric} quantity - the quantity required
-              * @param {numeric} price - the price to pay for each unit
-              * @param {object} flags - additional buy order flags
-              * @param {function} callback - the callback function
-             */
-            binanceAPI.order(side, binanceSymbol, quantity, price, flags, (error: any, response: BinanceOrderResponse) => {
-
-                if (error) {
-                    if (error.statusCode && error.statusCode !== 200) {
-                        if (error.body) {
-                            const errorBody = JSON.parse(error.body);
-                            reject(new Error('Error placing order from Binance.\nCode: ' + errorBody.code.toString() + '\nMessage: ' + errorBody.msg))
-                            return;
-                        }
-                    }
-
-                    reject(new Error('An error occurred during the place order from Binance: ' + error));
-                    return;
-                }
-
-                const liveOrder: LiveOrder = convertBinanceOrderToGdaxOrder(response);
-                resolve(liveOrder);
-            })
-        };
-
-        const use = binanceAPI.getOption('alwaysUseServerTime');
-        if (use) {
-            binanceAPI.useServerTime(() => {
-                binancePlaceOrder();
-            });
-        } else {
-            binancePlaceOrder();
-        }
-    });
-
-}
-
-
-
-// export function getCurrentOpenOrders(binanceAPI: any) {
-//     binanceAPI.openOrders(false, (error: any, response: Array<BinanceOpenOrder>) => {
-//     });
-// }

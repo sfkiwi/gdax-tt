@@ -1,4 +1,3 @@
-/* tslint:disable */
 import { BookBuilder, AggregatedLevelWithOrders, LiveOrder } from '../../lib';
 import { Logger } from '../../utils';
 import { Side } from '../../lib/sides';
@@ -21,17 +20,20 @@ export const PRODUCT_MAP: { [index: string]: string } = {
 // -------------------------- Helper methods -------------------------------------------------
 
 /**
-* Returns the Binance product that's equivalent to the given GDAX product. If it doesn't exist,
-* return the given product
-* @param gdaxProduct
-* @returns {string} Binance product code
-*/
+ * Returns the Binance product that's equivalent to the given GDAX product. If it doesn't exist,
+ * return the given product
+ * @param gdaxProduct
+ * @returns {string} Binance product code
+ */
 export function toBinanceSymbol(gdaxProduct: string): string {
   return PRODUCT_MAP[gdaxProduct] || gdaxProduct;
 }
 
 /**
- * A map of supported Binance books to the equivalent GDAX book
+ * Convert Binance books to the equivalent GDAX book
+ * 
+ * @param binanceProduct
+ * @returns {string} GDAX product code
  */
 export function fromBinanceSymbol(binanceProduct: string): string {
   const base = binanceProduct.slice(0, 3);
@@ -39,6 +41,28 @@ export function fromBinanceSymbol(binanceProduct: string): string {
   return base + '-' + quote;
 }
 
+/**
+ * Function to check generic errors response from Binance API.
+ * 
+ * @param messagePart Error message part (example: 'loading balances')
+ * @param error The error object
+ * @param reject The Promise reject function
+ */
+export function checkResponseError(messagePart: string, error: any, reject: (reason: any) => void) {
+  if (error === undefined || error === null) {
+    return false;
+  }
+
+  if (error.statusCode && error.statusCode !== 200) {
+    if (error.body) {
+      const errorBody = JSON.parse(error.body);
+      reject(new Error('Error ' + messagePart + ' from Binance.\nCode: ' + errorBody.code + '\nMessage: ' + errorBody.msg));
+      return true;
+    }
+  }
+  reject(new Error('An error occurred during the ' + messagePart + ' from Binance: \n' + error));
+  return true;
+}
 
 /**
  * Convert Binance order book to GDAX Order book format.
@@ -49,12 +73,12 @@ export function fromBinanceSymbol(binanceProduct: string): string {
 export function convertBinanceOrderBookToGdaxBook(book: BinanceOrderBook, logger?: Logger): BookBuilder {
   const bookBuilder = new BookBuilder(logger);
 
-  for (let price in book.asks) {
+  for (const price in book.asks) {
     const quantity = book.asks[price];
     addToLevel('sell', price, quantity, book.asks);
   }
 
-  for (let price in book.bids) {
+  for (const price in book.bids) {
     const quantity = book.bids[price];
     addToLevel('buy', price, quantity, book.bids);
   }
@@ -72,7 +96,7 @@ export function convertBinanceOrderBookToGdaxBook(book: BinanceOrderBook, logger
    */
   function addToLevel(side: Side, orderPrice: string, orderQuantity: string, orders: any) {
     try {
-      bookBuilder.addLevel(side, convertOrder(side, orderPrice, orderQuantity))
+      bookBuilder.addLevel(side, convertOrder(side, orderPrice, orderQuantity));
     } catch (err) {
       const newSize = Big(orderQuantity).abs().plus(bookBuilder.getOrder(orderPrice).size);
       orders[orderPrice] = newSize.toString();
@@ -101,22 +125,31 @@ export function convertBinanceOrderBookToGdaxBook(book: BinanceOrderBook, logger
   }
 }
 
-
+/**
+ * Type guard function to check the BinanceOrder is OpenOrder or just ResponseOrder
+ * 
+ * @param binanceOrder 
+ */
 function isOpenOrder(binanceOrder: BinanceOpenOrderResponse | BinanceOrderResponse): binanceOrder is BinanceOpenOrderResponse {
-  return (<BinanceOpenOrderResponse>binanceOrder).cummulativeQuoteQty !== undefined ||
-    (<BinanceOpenOrderResponse>binanceOrder).stopPrice !== undefined ||
-    (<BinanceOpenOrderResponse>binanceOrder).icebergQty !== undefined ||
-    (<BinanceOpenOrderResponse>binanceOrder).updateTime !== undefined ||
-    (<BinanceOpenOrderResponse>binanceOrder).isWorking !== undefined;
+  return (binanceOrder as BinanceOpenOrderResponse).cummulativeQuoteQty !== undefined ||
+    (binanceOrder as BinanceOpenOrderResponse).stopPrice !== undefined ||
+    (binanceOrder as BinanceOpenOrderResponse).icebergQty !== undefined ||
+    (binanceOrder as BinanceOpenOrderResponse).updateTime !== undefined ||
+    (binanceOrder as BinanceOpenOrderResponse).isWorking !== undefined;
 }
 
+/**
+ * Convert Binance Open or Response order to GDAX Liver Order
+ * 
+ * @param binanceOrder Binance order
+ */
 export function convertBinanceOrderToGdaxOrder(binanceOrder: BinanceOpenOrderResponse | BinanceOrderResponse): LiveOrder {
 
-  let extra: any = {
+  const extra: any = {
     clientOrderId: binanceOrder.clientOrderId,
     timeInForce: binanceOrder.timeInForce,
     type: binanceOrder.type,
-  }
+  };
 
   let time: Date;
 
@@ -139,36 +172,42 @@ export function convertBinanceOrderToGdaxOrder(binanceOrder: BinanceOpenOrderRes
     size: Big(binanceOrder.executedQty),
     status: binanceOrder.status,
     time: time,
-    extra: extra
-  }
+    extra: extra,
+  };
   return liveOrder;
 }
 
+/**
+ * Convert Binance product to GDAX product
+ * 
+ * @param binanceProduct Binance product
+ */
 export function convertBinanceProductToGdaxProduct(binanceProduct: BinanceProduct): Product {
 
   function findFilter(filterType: FilterType, binanceFilters: BinanceFilter[]) {
-
-    if (binanceFilters !== undefined || binanceFilters !== null)
+    if (binanceFilters !== undefined || binanceFilters !== null) {
       return null;
-
-    for (let i = 0; i < binanceFilters.length; i++) {
-      if (binanceFilters[i].filterType === filterType) {
-        return binanceFilters[i];
+    }
+    for (const iterator of binanceFilters) {
+      if (iterator.filterType === filterType) {
+        return iterator;
       }
     }
     return null;
   }
 
   const priceFilter = findFilter('PRICE_FILTER', binanceProduct.filters);
-  let minPrice, maxPrice, tickSize;
+  let minPrice;
+  let maxPrice;
+  let tickSize;
 
   if (priceFilter !== null) {
-    minPrice = priceFilter.minPrice
+    minPrice = priceFilter.minPrice;
     maxPrice = priceFilter.maxPrice;
     tickSize = priceFilter.tickSize;
   }
 
-  let product: Product = {
+  const product: Product = {
     id: fromBinanceSymbol(binanceProduct.symbol),
     sourceId: binanceProduct.symbol,
     baseCurrency: binanceProduct.baseAsset,
@@ -176,9 +215,7 @@ export function convertBinanceProductToGdaxProduct(binanceProduct: BinanceProduc
     baseMaxSize: Big(maxPrice),
     baseMinSize: Big(minPrice),
     quoteIncrement: Big(tickSize),
-    sourceData: binanceProduct
-  }
-
+    sourceData: binanceProduct,
+  };
   return product;
-
 }

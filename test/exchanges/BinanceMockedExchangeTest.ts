@@ -22,7 +22,6 @@ const opt: BinanceOptions = {
     test: true,
     verbose: false,
     useServerTime: true,
-    alwaysUseServerTime: false, // <- important to set to false
     log: (message: string) => { console.log(message) }
 };
 
@@ -42,44 +41,44 @@ const BinanceProductsDemo = {
         rateLimitType: 'REQUESTS_WEIGHT',
         interval: 'MINUTE',
         limit: 1200
-      },
-      {
+    },
+    {
         rateLimitType: 'ORDERS',
         interval: 'SECOND',
         limit: 10
-      },
-      {
+    },
+    {
         rateLimitType: 'ORDERS',
         interval: 'DAY',
         limit: 100000
-      }
+    }
     ],
     exchangeFilters: ['empty'],
     symbols: [{
-      symbol: 'ETHBTC',
-      status: 'TRADING',
-      baseAsset: 'ETH',
-      baseAssetPrecision: 8,
-      quoteAsset: 'BTC',
-      quotePrecision: 8,
-      orderTypes: ['LIMIT', 'MARKET'],
-      icebergAllowed: false,
-      filters: [{
-        filterType: 'PRICE_FILTER',
-        minPrice: '0.00000100',
-        maxPrice: '100000.00000000',
-        tickSize: '0.00000100'
-      }, {
-        filterType: 'LOT_SIZE',
-        minQty: '0.00100000',
-        maxQty: '100000.00000000',
-        stepSize: '0.00100000'
-      }, {
-        filterType: 'MIN_NOTIONAL',
-        minNotional: '0.00100000'
-      }]
+        symbol: 'ETHBTC',
+        status: 'TRADING',
+        baseAsset: 'ETH',
+        baseAssetPrecision: 8,
+        quoteAsset: 'BTC',
+        quotePrecision: 8,
+        orderTypes: ['LIMIT', 'MARKET'],
+        icebergAllowed: false,
+        filters: [{
+            filterType: 'PRICE_FILTER',
+            minPrice: '0.00000100',
+            maxPrice: '100000.00000000',
+            tickSize: '0.00000100'
+        }, {
+            filterType: 'LOT_SIZE',
+            minQty: '0.00100000',
+            maxQty: '100000.00000000',
+            stepSize: '0.00100000'
+        }, {
+            filterType: 'MIN_NOTIONAL',
+            minNotional: '0.00100000'
+        }]
     }]
-  }
+}
 
 /** used by binance.loadBalance */
 const BinanceBalanceDemo = {
@@ -137,7 +136,19 @@ const BinanceCancelOrderResponse = {
     origClientOrderId: "myOrder1",
     orderId: 1,
     clientOrderId: "cancelMyOrder1"
-  }
+}
+
+const BinanceCancelOrderResponse2 = {
+    symbol: "LTCBTC",
+    origClientOrderId: "myOrder2",
+    orderId: 1234,
+    clientOrderId: "cancelMyOrder2"
+}
+
+const BinanceAllOpenOrdersToCancel = [
+    BinanceCancelOrderResponse,
+    BinanceCancelOrderResponse2
+]
 
 /***************************************************************
  *  HELPER FUNCTIONS 
@@ -195,7 +206,7 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
     });
 
     it('[MOCKED] load products', function (this: Mocha.IContextDefinition, done) {
-        
+
         const firstProduct = BinanceProductsDemo.symbols[0];
 
         // public request!
@@ -237,7 +248,7 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
 
     });
 
-    it('[MOCKED] market place order', function (this: Mocha.IContextDefinition, done) {
+    it('[MOCKED] place market order', function (this: Mocha.IContextDefinition, done) {
 
         const order: PlaceOrderMessage = {
             productId: 'BNBBTC',
@@ -249,7 +260,7 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
             price: '10'
         }
 
-        let endPointData = {
+        let parameters = {
             symbol: order.productId,
             side: order.side.toUpperCase(),
             type: order.orderType.toUpperCase(),
@@ -258,8 +269,14 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
             timeInForce: 'GTC'
         };
 
-        buildNockRequest('v3/order' + ((opt.test) ? '/test' : ''))
-            .post(buildEndpoint(endPointData))
+        let nockScope = buildNockRequest();
+
+        if (opt.alwaysUseServerTime === true) {
+            nockScope.get('/v1/time')
+            .reply(200, 12345678912345678910);
+        }
+
+        nockScope.post('/v3/order' + ((opt.test) ? '/test' : '') + buildEndpoint(parameters))
             .reply(200, JSON.stringify(BinanceLimitBuyResponse));
 
         binance.placeOrder(order).then((liveOrder: LiveOrder) => {
@@ -314,16 +331,16 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
 
     it('[MOCKED] get order status', function (this: Mocha.IContextDefinition, done) {
 
-        const parameters = {
+        const loadOrderParameters = {
             symbol: 'LTCBTC',
             orderId: BinanceOpenOrder.orderId
         };
 
         buildNockRequest('v3/order')
-            .get(buildEndpoint(parameters))
+            .get(buildEndpoint(loadOrderParameters))
             .reply(200, JSON.stringify(BinanceOpenOrder));
 
-        binance.loadOrder(parameters.orderId, parameters.symbol).then((liveOrder: LiveOrder) => {
+        binance.loadOrder(loadOrderParameters.orderId, loadOrderParameters.symbol).then((liveOrder: LiveOrder) => {
             assert.equal(liveOrder.id, BinanceOpenOrder.orderId.toString());
             assert.equal(liveOrder.extra.clientOrderId, BinanceOpenOrder.clientOrderId);
             assert.equal(liveOrder.extra.isWorking, BinanceOpenOrder.isWorking);
@@ -335,18 +352,43 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
 
     it('[MOCKED] cancel order', function (this: Mocha.IContextDefinition, done) {
 
-        const openOrderParameters = {
+        const cancelOrderParameters = {
+            symbol: 'LTCBTC',
+            orderId: BinanceOpenOrder.orderId
+        };
+
+        buildNockRequest()
+            .delete('/v3/order' + buildEndpoint(cancelOrderParameters))
+            .reply(200, JSON.stringify(BinanceCancelOrderResponse))
+
+        binance.cancelOrder(cancelOrderParameters.orderId.toString(10), cancelOrderParameters.symbol).then((answer: string) => {
+            assert.equal(answer, BinanceCancelOrderResponse.orderId.toString(10));
+            done();
+            return Promise.resolve();
+        });
+
+    });
+
+    it('[MOCKED] cancel all orders', function (this: Mocha.IContextDefinition, done) {
+
+        const cancelAllOrdersParameters = {
             symbol: 'LTCBTC',
         };
 
         // nock chaining
         buildNockRequest()
-            .get('/v3/openOrders' + buildEndpoint(openOrderParameters))
-            .reply(200, JSON.stringify(BinanceAllOpenOrders))
-            .delete('/v3/order' + buildEndpoint({symbol: 'LTCBTC', orderId:BinanceOpenOrder.orderId}))
-            .reply(200, JSON.stringify(BinanceCancelOrderResponse));
+            .get('/v3/openOrders' + buildEndpoint(cancelAllOrdersParameters))
+            .reply(200, JSON.stringify(BinanceAllOpenOrdersToCancel))
+            .delete('/v3/order' + buildEndpoint({ symbol: 'LTCBTC', orderId: BinanceCancelOrderResponse.orderId }))
+            .reply(200, JSON.stringify(BinanceCancelOrderResponse))
+            .delete('/v3/order' + buildEndpoint({ symbol: 'LTCBTC', orderId: BinanceCancelOrderResponse2.orderId }))
+            .reply(200, JSON.stringify(BinanceCancelOrderResponse2))
 
-        binance.cancelAllOrders(openOrderParameters.symbol).then((answer:string[]) => {
+        binance.cancelAllOrders(cancelAllOrdersParameters.symbol).then((answer: string[]) => {
+            assert(Array.isArray(answer));
+            assert(answer.length === 2);
+            assert.equal(answer[0], BinanceCancelOrderResponse.orderId.toString(10))
+            assert.equal(answer[1], BinanceCancelOrderResponse2.orderId.toString(10))
             done();
             return Promise.resolve();
         });

@@ -8,6 +8,7 @@ import { BinanceWebsocketAPI } from '../../src/exchanges/binance/BinanceWebsocke
 import { MochaDoneWrapper } from './MochaDoneWrapper';
 import { BinanceCandlesticks } from '../../src/exchanges/binance/BinanceWebsocketInterfaces';
 import { BookBuilder } from '../../src/lib';
+import { BigJS } from '../../src/lib/types';
 
 const TIMEOUT = 10000;
 
@@ -136,6 +137,16 @@ describe('The Binance Exchange - REST API', () => {
 
         binance.loadProducts().then((products:Product[]) => {
             assert(Array.isArray(products));
+            done();
+        });
+    });
+
+    it('loads mid market price', function (this: Mocha.IContextDefinition, done) {
+
+        this.timeout(TIMEOUT);
+
+        binance.loadMidMarketPrice('BNB-BTC').then((price:BigJS) => {
+            assert(price);
             done();
         });
     })

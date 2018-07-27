@@ -1,4 +1,7 @@
 
+/**
+ * Binance raw tick information
+ */
 export interface BinanceRawTick {
     /** Timestamp */
     t: number;
@@ -31,6 +34,10 @@ export interface BinanceRawTick {
     B: string;
 }
 
+/**
+ * Binance raw candlesticks.
+ * Answer from binanceAPI.websockets.candlesticks.
+ */
 export interface BinanceRawCandlesticks {
     /** Event type */
     e: string;
@@ -42,6 +49,9 @@ export interface BinanceRawCandlesticks {
     k: BinanceRawTick;
 }
 
+/**
+ * Binance candlesticks
+ */
 export interface BinanceCandlesticks {
     symbol: string;
     time: number;
@@ -58,6 +68,9 @@ export interface BinanceCandlesticks {
     quoteBuyVolume: string;
 }
 
+/**
+ * Represents market depth for a symbol
+ */
 export interface BinanceMarketDepth {
     /** Event Type */
     e: string;
