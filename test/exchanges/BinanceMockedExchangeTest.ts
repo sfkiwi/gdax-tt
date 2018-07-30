@@ -8,10 +8,13 @@ import { Balances } from '../../src/exchanges/AuthenticatedExchangeAPI';
 import { ExchangeAuthConfig } from '../../src/exchanges/AuthConfig';
 import { PlaceOrderMessage } from '../../src/core';
 import { LiveOrder } from '../../src/lib';
-import { BinanceOrderResponse, BinanceProduct } from '../../src/exchanges/binance/BinanceMessages';
+import { BinanceOrderResponse, BinanceProduct, BinanceWithdrawResponse } from '../../src/exchanges/binance/BinanceMessages';
 import { Product } from '../../src/exchanges/PublicExchangeAPI';
+import { TransferResult, WithdrawalRequest } from '../../src/exchanges/ExchangeTransferAPI';
+import { Big } from '../../src/lib/types';
 
 const BASE_ENDPOINT = 'https://api.binance.com/api/';
+const WAPI_ENDPOINT = 'https://api.binance.com/wapi/';
 const VERBOSE_NOCK = false;
 
 /***************************************************************
@@ -150,12 +153,19 @@ const BinanceAllOpenOrdersToCancel = [
     BinanceCancelOrderResponse2
 ]
 
+const binanceWithdrawResponse: BinanceWithdrawResponse[] = [{
+    msg: "success",
+    success: true,
+    id: "7213fea8e94b4a5593d507237e5a555b"
+}]
+
 /***************************************************************
  *  HELPER FUNCTIONS 
  ***************************************************************/
 
 let commonEndPointData: any = {
-    'timestamp': '12345678910111213141',
+
+    'timestamp': '1532966664020', //'12345678910111213141',
     'recvWindow': opt.recvWindow || 5000
 }
 
@@ -177,13 +187,18 @@ function buildEndpoint(data?: any) {
 }
 
 function filterPath(path: string): string {
-    path = path.replace(/timestamp=([0-9]{1,20}|NaN)/g, 'timestamp=12345678910111213141')
-        .replace(/&signature=[^&]*/g, '&signature=MY_SECRET_API_KEY')
+    // let matcher = path.match(/timestamp=([0-9]{1,20}|NaN)/g);
+    // console.log(matcher.toString());
+    path = path.replace(/timestamp=([0-9]{1,20}|NaN)/g, 'timestamp=1532966664020')
+        .replace(/&signature=[^&]*/g, '&signature=MY_SECRET_API_KEY');
     return path;
 }
 
-function buildNockRequest(baseEndpoint: string = ''): nock.Scope {
-    let nockScope = nock(BASE_ENDPOINT + baseEndpoint)
+function buildNockRequest(endpoint: string = '', baseAddress: string = BASE_ENDPOINT): nock.Scope {
+    if (endpoint === null) {
+        endpoint = '';
+    }
+    let nockScope = nock(baseAddress + endpoint)
         .filteringPath(filterPath);
 
     if (VERBOSE_NOCK) {
@@ -273,7 +288,7 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
 
         if (opt.alwaysUseServerTime === true) {
             nockScope.get('/v1/time')
-            .reply(200, 12345678912345678910);
+                .reply(200, 12345678912345678910);
         }
 
         nockScope.post('/v3/order' + ((opt.test) ? '/test' : '') + buildEndpoint(parameters))
@@ -394,6 +409,36 @@ describe('The Binance Mocked Exchange - MOCKED REST API', () => {
         });
 
     });
+
+
+    it('[MOCKED] withdrawal', function (this: Mocha.IContextDefinition, done) {
+
+        const parameters = {
+            asset: 'LTC',
+            address: 'someAddress',
+            amount: 1,
+            name: 'API Withdraw',
+        };
+
+        const transfer: WithdrawalRequest = {
+            amount: Big('1.0'),
+            currency: 'LTC',
+            address: 'someAddress',
+        }
+
+        buildNockRequest('v3/withdraw.html', WAPI_ENDPOINT)
+            .post(buildEndpoint(parameters))
+            .reply(200, JSON.stringify(binanceWithdrawResponse));
+
+        binance.requestWithdrawal(transfer).then((result: TransferResult) => {
+            assert.equal(result.success, binanceWithdrawResponse[0].success);
+            assert.equal(result.details.message, binanceWithdrawResponse[0].msg);
+            assert.equal(result.details.id, binanceWithdrawResponse[0].id);
+            done();
+            return Promise.resolve();
+        });
+    });
+
 
 
 });

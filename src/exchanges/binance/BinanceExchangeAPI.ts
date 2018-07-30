@@ -19,7 +19,9 @@ import {
     BinanceExchangeInformation,
     BinanceCancelOrder,
     BinanceOrderResponse,
-    BinanceSymbolPrice
+    BinanceSymbolPrice,
+    BinanceWithdrawResponse,
+    BinanceCryptoAddress
 } from './BinanceMessages';
 
 const BINANCE_BASE_URL = 'https://api.binance.com/api/';
@@ -49,18 +51,7 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
         this.logger = config.logger || undefined;
     }
 
-    requestCryptoAddress(cur: string): Promise<CryptoAddress> {
-        throw new Error('Method not implemented.' + cur);
-    }
-
-    requestTransfer(request: TransferRequest): Promise<TransferResult> {
-        throw new Error('Method not implemented.' + request);
-    }
-
-    requestWithdrawal(request: WithdrawalRequest): Promise<TransferResult> {
-        throw new Error('Method not implemented.' + request);
-    }
-
+    // ----------------------------------- Authenticated API methods --------------------------------------------------//
     placeOrder(order: PlaceOrderMessage): Promise<LiveOrder> {
         const binanceAPI = this.binanceInstance;
         const promise: Promise<LiveOrder> = this.checkAuth().then(() => {
@@ -324,6 +315,60 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
         return promise;
     }
 
+    // ---------------------------------- Transfer API Methods --------------------------------------------------//
+    requestCryptoAddress(currency: string): Promise<CryptoAddress> {
+        return this.checkAuth().then(() => {
+            return new Promise<CryptoAddress>((resolve, reject) => {
+                this.binanceInstance.depositAddress(currency, (error: any, response: BinanceCryptoAddress) => {
+                    if (checkResponseError('request crypto address', error, reject)) {
+                        return;
+                    }
+                    const cAddress: CryptoAddress = {
+                        address: response.address,
+                        currency: currency,
+                        details: {
+                            url: response.address,
+                            addressTag: response.addressTag,
+                        }
+                    };
+                    resolve(cAddress);
+                });
+            });
+        });
+    }
+
+    requestTransfer(_request: TransferRequest): Promise<TransferResult> {
+        return Promise.reject(new GTTError('Not implemented'));
+    }
+
+    requestWithdrawal(request: WithdrawalRequest): Promise<TransferResult> {
+        return this.checkAuth().then(() => {
+            return new Promise<TransferResult>((resolve, reject) => {
+                this.binanceInstance.withdraw(request.currency, request.address, request.amount.toNumber(), false, (error: any, response: BinanceWithdrawResponse[]) => {
+                    if (checkResponseError('request withdraw', error, reject)) {
+                        return;
+                    }
+                    if (response.length >= 1) {
+                        const binanceResult = response[0];
+
+                        const result: TransferResult = {
+                            success: binanceResult.success,
+                            details: {
+                                message: binanceResult.msg,
+                                id: binanceResult.id,
+                            }
+                        };
+
+                        resolve(result);
+                    } else {
+                        reject(new Error('Invalid withdrawal response from Binance.'));
+                    }
+                });
+            });
+        });
+    }
+
+    /* BINANCE SPECIFIC FUNCTIONS */
     checkAuth(): Promise<ExchangeAuthConfig> {
         return new Promise<ExchangeAuthConfig>((resolve, reject) => {
             const apiKey = this.binanceInstance.getOption('APIKEY');
@@ -335,6 +380,4 @@ export class BinanceExchangeAPI implements PublicExchangeAPI, AuthenticatedExcha
             reject(new Error('You cannot make authenticated requests if a ExchangeAuthConfig object was not provided to the BinanceExchangeAPI constructor'));
         });
     }
-
-    /* BINANCE SPECIFIC FUNCTIONS */
 }

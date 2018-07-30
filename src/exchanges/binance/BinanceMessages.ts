@@ -265,3 +265,22 @@ export interface BinanceExchangeInformation {
     exchangeFilters: any[];
     symbols: BinanceProduct[];
 }
+
+/**
+ * Binance fetched deposit address response.
+ */
+export interface BinanceCryptoAddress {
+    address: string;
+    success: boolean;
+    addressTag?: string;
+    url: string;
+}
+
+/**
+ * Binance submitted withdraw response.
+ */
+export interface BinanceWithdrawResponse {
+    msg: string;
+    success: boolean;
+    id: string;
+}

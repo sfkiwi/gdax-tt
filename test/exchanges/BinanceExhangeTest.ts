@@ -9,6 +9,7 @@ import { MochaDoneWrapper } from './MochaDoneWrapper';
 import { BinanceCandlesticks } from '../../src/exchanges/binance/BinanceWebsocketInterfaces';
 import { BookBuilder } from '../../src/lib';
 import { BigJS } from '../../src/lib/types';
+import { CryptoAddress } from '../../src/exchanges/ExchangeTransferAPI';
 
 const TIMEOUT = 10000;
 
@@ -149,7 +150,18 @@ describe('The Binance Exchange - REST API', () => {
             assert(price);
             done();
         });
-    })
+    });
+
+    it('request crypto address', function (this: Mocha.IContextDefinition, done) {
+
+        binance.requestCryptoAddress('ETH').then((result:CryptoAddress) => {
+            assert(typeof result === 'object');
+            assert.equal(result.currency, 'ETH');
+            assert(result.address.length > 0);
+            done();
+            return Promise.resolve();
+        });
+    });
 
 });
 

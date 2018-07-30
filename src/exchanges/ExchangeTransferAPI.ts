@@ -61,6 +61,7 @@ export interface TransferResult {
 export interface CryptoAddress {
     currency: string;
     address: string;
+    details?: any;
 }
 
 export interface TransferRequest {
