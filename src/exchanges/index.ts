@@ -7,7 +7,10 @@ export * from './bittrex/BittrexFeed';
 export * from './bitmex/BitmexMarketFeed';
 
 // REST APIs
+
 export * from './bitfinex/BitfinexExchangeAPI';
 export * from './bittrex/BittrexAPI';
 export * from './ccxt';
 export * from './gdax/GDAXExchangeAPI';
+
+export * from './binance/BinanceExchangeAPI';
