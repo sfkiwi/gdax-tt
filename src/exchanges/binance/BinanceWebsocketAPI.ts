@@ -180,7 +180,7 @@ export class BinanceWebsocketAPI {
     private getObservableKey(streamName: BinanceWebsocketName, binanceSymbol?: string): string {
         let mapKey: string = streamName;
         if (binanceSymbol) {
-            mapKey = mapKey.concat('-').concat(binanceSymbol);
+            mapKey = mapKey.concat('&').concat(binanceSymbol);
         }
         return mapKey;
     }

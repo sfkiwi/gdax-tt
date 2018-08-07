@@ -89,7 +89,7 @@ describe('The Binance Exchange - WebSocket API', () => {
     });
 });
 
-describe('The Binance Exchange - REST API', () => {
+describe('The Binance Exchange - Public REST API', () => {
     const config: BinanceConfig = { options: opt, auth: auth };
     const binance = new BinanceExchangeAPI(config);
 
@@ -131,12 +131,12 @@ describe('The Binance Exchange - REST API', () => {
             done();
         });
     });
-    
+
     it('loads products', function (this: Mocha.IContextDefinition, done) {
 
         this.timeout(TIMEOUT);
 
-        binance.loadProducts().then((products:Product[]) => {
+        binance.loadProducts().then((products: Product[]) => {
             assert(Array.isArray(products));
             done();
         });
@@ -146,7 +146,7 @@ describe('The Binance Exchange - REST API', () => {
 
         this.timeout(TIMEOUT);
 
-        binance.loadMidMarketPrice('BNB-BTC').then((price:BigJS) => {
+        binance.loadMidMarketPrice('BNB-BTC').then((price: BigJS) => {
             assert(price);
             done();
         });
@@ -154,7 +154,7 @@ describe('The Binance Exchange - REST API', () => {
 
     it('request crypto address', function (this: Mocha.IContextDefinition, done) {
 
-        binance.requestCryptoAddress('ETH').then((result:CryptoAddress) => {
+        binance.requestCryptoAddress('ETH').then((result: CryptoAddress) => {
             assert(typeof result === 'object');
             assert.equal(result.currency, 'ETH');
             assert(result.address.length > 0);
@@ -164,7 +164,4 @@ describe('The Binance Exchange - REST API', () => {
     });
 
 });
-
-
-
 
