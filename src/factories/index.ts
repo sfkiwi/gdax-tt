@@ -55,3 +55,10 @@ export  { Poloniex };
 
 import * as Bittrex from './bittrexFactories';
 export  { Bittrex };
+
+/**
+ * Gemini factories
+ */
+
+import * as Gemini from './geminiFactories';
+export { Gemini };

@@ -111,7 +111,7 @@ export interface BinanceOrderBook {
 /**********************************************
  * Binance base order response
  *********************************************/
-interface BinanceOrderResponseBase {
+export interface BinanceOrderResponseBase {
     symbol: string;
     orderId: number;
     clientOrderId: string;
